@@ -22,6 +22,7 @@ label{display:block;font-size:13px;font-weight:600;margin:12px 0 6px}
 input,select,textarea{width:100%;padding:13px;border:1px solid #d5dfd7;border-radius:11px;background:#fff;font:inherit;font-size:15px;color:var(--text)}
 textarea{min-height:68px;resize:vertical}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.date-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 button{border:0;border-radius:12px;padding:12px 14px;font:inherit;font-weight:700;cursor:pointer}
 .primary{background:var(--green);color:white;width:100%;margin-top:15px}
 .secondary{background:#e8f2ea;color:#14532d}.blue{background:#eaf1ff;color:#1849a9}
@@ -79,12 +80,9 @@ footer{text-align:center;color:var(--muted);font-size:11px;margin:20px 0;line-he
   <button type="button" id="incomeTab" class="tab incomeTab">ثبت دریافت پول</button>
  </div>
  <form id="transactionForm">
-  <label>تاریخ شمسی</label><div class="row"><select id="dateDay" aria-label="روز"></select><select id="dateMonth" aria-label="ماه"></select><select id="dateYear" aria-label="سال"></select></div><input id="date" type="hidden" required>
+  <label>تاریخ شمسی</label><div class="date-fields"><select id="dateDay" aria-label="روز"></select><select id="dateMonth" aria-label="ماه"></select><select id="dateYear" aria-label="سال"></select></div><input id="date" type="hidden" required>
   <label for="desc">شرح</label><input id="desc" maxlength="120" placeholder="مثلاً خرید سیمان یا دریافت تنخواه" required>
-  <div class="row">
-   <div><label for="amount">مبلغ (تومان)</label><input id="amount" type="number" min="1" step="1" inputmode="numeric" placeholder="مثلاً ۲۵۰۰۰۰۰" required></div>
-   <div><label for="category">دسته‌بندی</label><select id="category"></select></div>
-  </div>
+  <label for="amount">مبلغ (تومان)</label><input id="amount" type="number" min="1" step="1" inputmode="numeric" placeholder="مثلاً ۲۵۰۰۰۰۰" required>
   <label for="note">توضیحات (اختیاری)</label><textarea id="note" maxlength="300" placeholder="نام فروشنده، بابت چه کاری یا توضیح اضافه"></textarea>
   <button class="primary" type="submit" id="saveBtn">＋ ثبت هزینه</button>
   <button class="secondary hidden" type="button" id="cancelEdit" style="width:100%;margin-top:8px">لغو ویرایش</button>
@@ -107,8 +105,8 @@ footer{text-align:center;color:var(--muted);font-size:11px;margin:20px 0;line-he
   <button class="secondary" id="allBtn">همه سوابق</button>
  </div>
  <div class="row">
-  <div><label>از تاریخ شمسی</label><div class="row"><select id="fromDay"></select><select id="fromMonth"></select><select id="fromYear"></select></div><input id="from" type="hidden"></div>
-  <div><label>تا تاریخ شمسی</label><div class="row"><select id="toDay"></select><select id="toMonth"></select><select id="toYear"></select></div><input id="to" type="hidden"></div>
+  <div><label>از تاریخ شمسی</label><div class="date-fields"><select id="fromDay"></select><select id="fromMonth"></select><select id="fromYear"></select></div><input id="from" type="hidden"></div>
+  <div><label>تا تاریخ شمسی</label><div class="date-fields"><select id="toDay"></select><select id="toMonth"></select><select id="toYear"></select></div><input id="to" type="hidden"></div>
  </div>
  <label for="groupMode">نحوه خلاصه گزارش</label>
  <select id="groupMode"><option value="day">گزارش روزانه</option><option value="month">گزارش ماهانه</option></select>
@@ -121,7 +119,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;margin:20px 0;line-he
  <div id="groupedReport"></div>
  <div class="actions">
   <button class="secondary" id="shareBtn">ارسال گزارش</button>
-  <button class="blue" id="excelBtn">دریافت فایل Excel</button>
+  <button class="blue" id="excelBtn">دریافت فایل اکسل</button>
  </div>
  <button class="secondary" id="printBtn" style="width:100%;margin-top:9px">چاپ فرم گزارش</button>
  <div class="note">مانده حساب = مانده اولیه + تمام دریافت‌ها − تمام هزینه‌ها. «مانده پایان بازه» بر اساس همه تراکنش‌های ثبت‌شده تا تاریخ پایان گزارش محاسبه می‌شود.</div>
@@ -148,9 +146,24 @@ const today=localToday();
 const jalaliMonths=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
 function toJalaliKey(iso){if(!iso)return '';const [y,m,d]=iso.split('-').map(Number),p=jalaliParts(new Date(y,m-1,d));return [p.year,String(p.month).padStart(2,'0'),String(p.day).padStart(2,'0')].join('-');}
 function fromJalali(y,m,d){const start=new Date(y+621,2,20);for(let i=-5;i<380;i++){const x=new Date(start);x.setDate(start.getDate()+i);const p=jalaliParts(x);if(p.year===y&&p.month===m&&p.day===d)return gregorianKey(x);}return '';}
-function setupPicker(prefix,iso){const key=toJalaliKey(iso)||toJalaliKey(today),[yy,mm,dd]=key.split('-').map(Number);const years=$(prefix+'Year'),months=$(prefix+'Month'),days=$(prefix+'Day');years.innerHTML='';for(let y=yy-5;y<=yy+5;y++)years.add(new Option(String(y),y));months.innerHTML=jalaliMonths.map((n,i)=>new Option(n,i+1)).join('');days.innerHTML=Array.from({length:31},(_,i)=>new Option(String(i+1),i+1)).join('');years.value=yy;months.value=mm;days.value=dd;const update=()=>{const y=Number(years.value),m=Number(months.value),d=Number(days.value);if(m===12&&d>29)days.value='29';$(prefix).value=fromJalali(y,m,Number(days.value));};[years,months,days].forEach(el=>el.onchange=update);update();}
+function setupPicker(prefix,iso){
+ const key=toJalaliKey(iso)||toJalaliKey(today),[yy,mm,dd]=key.split('-').map(Number);
+ const years=$(prefix+'Year'),months=$(prefix+'Month'),days=$(prefix+'Day');
+ years.innerHTML='';for(let y=yy-5;y<=yy+5;y++)years.add(new Option(new Intl.NumberFormat('fa-IR').format(y),y));
+ months.innerHTML=Array.from({length:12},(_,i)=>new Option(new Intl.NumberFormat('fa-IR').format(i+1),i+1)).join('');
+ const fillDays=(wanted)=>{
+   const y=Number(years.value),m=Number(months.value);let count=0;
+   for(let d=1;d<=31;d++){if(fromJalali(y,m,d))count=d;else break;}
+   days.innerHTML=Array.from({length:count},(_,i)=>new Option(new Intl.NumberFormat('fa-IR').format(i+1),i+1)).join('');
+   days.value=String(Math.min(Number(wanted)||1,count));
+ };
+ years.value=yy;months.value=mm;fillDays(dd);
+ const update=()=>{$(prefix).value=fromJalali(Number(years.value),Number(months.value),Number(days.value));if(pickerReady&&(prefix==='from'||prefix==='to'))render();};
+ years.onchange=()=>{fillDays(days.value);update();};months.onchange=()=>{fillDays(days.value);update();};days.onchange=update;update();
+}
 function setPicker(prefix,iso){setupPicker(prefix,iso);}
-['from','to'].forEach(prefix=>[prefix+'Year',prefix+'Month',prefix+'Day'].forEach(id=>$(id).addEventListener('change',()=>{const y=Number($(prefix+'Year').value),m=Number($(prefix+'Month').value),d=Number($(prefix+'Day').value);$(prefix).value=fromJalali(y,m,d);render();}))); 
+let pickerReady=false;
+
 function readItems(){
  try{
   const raw=JSON.parse(localStorage.getItem(KEY)||'[]');
@@ -161,12 +174,12 @@ function readItems(){
 let items=readItems(), editing=null, formType='expense';
 let openingBalance=Number(localStorage.getItem('daftar-tankhah-opening')||0);
 $('openingBalance').value=openingBalance;setupPicker('date',today);setupPicker('from','');setupPicker('to','');$('from').value='';$('to').value='';
-const expenseCategories=['خرید مصالح','دستمزد','حمل‌ونقل','ابزار و تجهیزات','خوراک و پذیرایی','قبوض و خدمات','سایر هزینه‌ها'];
-const incomeCategories=['دریافت تنخواه','شارژ مجدد تنخواه','دریافت بابت تسویه','سایر دریافتی‌ها'];
 const money=n=>new Intl.NumberFormat('fa-IR').format(Math.round(n||0))+' تومان';
-const dateFa=s=>{if(!s)return '';const [y,m,d]=toJalaliKey(s).split('-').map(Number);return `${new Intl.NumberFormat('fa-IR').format(d)} ${jalaliMonths[m-1]} ${new Intl.NumberFormat('fa-IR').format(y)}`;};
+const dateFa=s=>{if(!s)return '';const [y,m,d]=toJalaliKey(s).split('-').map(Number);const f=n=>new Intl.NumberFormat('fa-IR',{minimumIntegerDigits:2,useGrouping:false}).format(n);return `${new Intl.NumberFormat('fa-IR').format(y)}/${f(m)}/${f(d)}`;};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sum=(data,type)=>data.filter(x=>x.type===type).reduce((a,x)=>a+x.amount,0);
+pickerReady=true;
+
 function save(){localStorage.setItem(KEY,JSON.stringify(items));render();}
 function setType(type){
  formType=type;
@@ -174,12 +187,11 @@ function setType(type){
  $('incomeTab').classList.toggle('active',type==='income');
  $('saveBtn').textContent=editing?'ذخیره تغییرات':(type==='income'?'＋ ثبت دریافت پول':'＋ ثبت هزینه');
  $('desc').placeholder=type==='income'?'مثلاً دریافت تنخواه از صاحب‌کار':'مثلاً خرید سیمان یا کرایه حمل';
- $('category').innerHTML=(type==='income'?incomeCategories:expenseCategories).map(x=>`<option>${x}</option>`).join('');
 }
 $('expenseTab').onclick=()=>setType('expense');$('incomeTab').onclick=()=>setType('income');
 $('transactionForm').addEventListener('submit',e=>{
  e.preventDefault();
- const x={id:editing||Date.now(),type:formType,date:$('date').value,desc:$('desc').value.trim(),amount:Number($('amount').value),category:$('category').value,note:$('note').value.trim()};
+ const x={id:editing||Date.now(),type:formType,date:$('date').value,desc:$('desc').value.trim(),amount:Number($('amount').value),note:$('note').value.trim()};
  if(!x.date||!x.desc||!Number.isFinite(x.amount)||x.amount<1){alert('لطفاً تاریخ، شرح و مبلغ معتبر وارد کنید.');return;}
  if(editing)items=items.map(a=>a.id===editing?x:a);else items.push(x);
  resetForm();save();
@@ -187,7 +199,7 @@ $('transactionForm').addEventListener('submit',e=>{
 function resetForm(){editing=null;$('transactionForm').reset();setupPicker('date',today);$('formTitle').textContent='ثبت تراکنش جدید';$('cancelEdit').classList.add('hidden');setType('expense');}
 window.editItem=id=>{
  const x=items.find(a=>a.id===id);if(!x)return;
- editing=id;setType(x.type);setupPicker('date',x.date);$('desc').value=x.desc;$('amount').value=x.amount;$('category').value=x.category;$('note').value=x.note||'';
+ editing=id;setType(x.type);setupPicker('date',x.date);$('desc').value=x.desc;$('amount').value=x.amount;$('note').value=x.note||'';
  $('formTitle').textContent='ویرایش تراکنش';$('saveBtn').textContent='ذخیره تغییرات';$('cancelEdit').classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'});
 };
 window.deleteItem=id=>{if(confirm('این تراکنش حذف شود؟')){items=items.filter(x=>x.id!==id);save();}};
@@ -216,7 +228,7 @@ function render(){
  $('rangeIncome').textContent=money(inc);$('rangeExpense').textContent=money(exp);$('rangeNet').textContent=money(net);
  $('rangeBalance').textContent=money(balanceAt(rangeEnd()));
  renderGrouped(data);
- $('list').innerHTML=data.length?data.map(x=>`<div class="expense"><div class="exp-head"><div><b>${esc(x.desc)}</b><div class="muted">${dateFa(x.date)} · ${esc(x.category)} · <span class="${x.type==='income'?'incomeText':'expenseText'}">${x.type==='income'?'دریافت':'هزینه'}</span></div></div><div class="amount ${x.type==='income'?'incomeText':'expenseText'}">${x.type==='income'?'+':'−'} ${money(x.amount)}</div></div>${x.note?`<div class="muted" style="margin-top:6px">${esc(x.note)}</div>`:''}<div class="actions"><button class="secondary" onclick="editItem(${x.id})">ویرایش</button><button class="danger" onclick="deleteItem(${x.id})">حذف</button></div></div>`).join(''):'<div class="empty">هنوز تراکنشی در این بازه ثبت نشده است.</div>';
+ $('list').innerHTML=data.length?data.map(x=>`<div class="expense"><div class="exp-head"><div><b>${esc(x.desc)}</b><div class="muted">${dateFa(x.date)} · <span class="${x.type==='income'?'incomeText':'expenseText'}">${x.type==='income'?'دریافت':'هزینه'}</span></div></div><div class="amount ${x.type==='income'?'incomeText':'expenseText'}">${x.type==='income'?'+':'−'} ${money(x.amount)}</div></div>${x.note?`<div class="muted" style="margin-top:6px">${esc(x.note)}</div>`:''}<div class="actions"><button class="secondary" onclick="editItem(${x.id})">ویرایش</button><button class="danger" onclick="deleteItem(${x.id})">حذف</button></div></div>`).join(''):'<div class="empty">هنوز تراکنشی در این بازه ثبت نشده است.</div>';
 }
 $('groupMode').onchange=render;
 $('todayBtn').onclick=()=>{setupPicker('from',today);setupPicker('to',today);render();};
@@ -224,9 +236,30 @@ $('monthBtn').onclick=()=>{const p=jalaliParts(new Date());const first=fromJalal
 $('allBtn').onclick=()=>{$('from').value='';$('to').value='';render();};
 
 function reportText(){
- const data=filtered(),inc=sum(data,'income'),exp=sum(data,'expense');
- const lines=['گزارش تنخواه','از تاریخ: '+($('from').value?dateFa($('from').value):'ابتدای سوابق'),'تا تاریخ: '+($('to').value?dateFa($('to').value):'امروز'),'مانده اولیه: '+money(openingBalance),'دریافتی این بازه: '+money(inc),'هزینه این بازه: '+money(exp),'خالص این بازه: '+money(inc-exp),'مانده پایان بازه: '+money(balanceAt(rangeEnd())),'','شرح تراکنش‌ها:'];
- data.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id).forEach((x,i)=>lines.push(`${i+1}) ${dateFa(x.date)} | ${x.type==='income'?'دریافت':'هزینه'} | ${x.desc} | ${x.category} | ${money(x.amount)}${x.note?' | '+x.note:''}`));
+ const data=filtered().slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id);
+ const inc=sum(data,'income'),exp=sum(data,'expense'),end=balanceAt(rangeEnd());
+ const line='━━━━━━━━━━━━━━━━━━━━';
+ const lines=[
+  'گزارش مالی تنخواه',line,
+  'بازه گزارش: '+($('from').value?dateFa($('from').value):'از ابتدای سوابق')+' تا '+($('to').value?dateFa($('to').value):dateFa(today)),
+  'تاریخ تهیه گزارش: '+dateFa(today),line,
+  'خلاصه حساب',
+  'مانده اولیه: '+money(openingBalance),
+  'جمع دریافتی‌ها: '+money(inc),
+  'جمع هزینه‌ها: '+money(exp),
+  'خالص این بازه: '+money(inc-exp),
+  'مانده حساب در پایان بازه: '+money(end),line,
+  'ریز تراکنش‌ها'
+ ];
+ data.forEach((x,i)=>lines.push(
+  `${i+1}. ${dateFa(x.date)} | ${x.type==='income'?'دریافت وجه':'پرداخت هزینه'}`,
+  'شرح: '+x.desc,
+  'مبلغ: '+money(x.amount),
+  ...(x.note?['توضیحات: '+x.note]:[]),
+  line
+ ));
+ lines.push('فرمول محاسبه: مانده اولیه + جمع دریافتی‌ها − جمع هزینه‌ها');
+ lines.push('این گزارش از دفتر ثبت تنخواه تهیه شده است.');
  return lines.join('\n');
 }
 $('shareBtn').onclick=async()=>{
@@ -235,22 +268,42 @@ $('shareBtn').onclick=async()=>{
  try{if(navigator.share)await navigator.share({title:'گزارش تنخواه',text:txt});else{await navigator.clipboard.writeText(txt);alert('گزارش کپی شد؛ آن را در واتساپ یا پیام‌رسان ارسال کنید.');}}
  catch(e){if(e.name!=='AbortError'){try{await navigator.clipboard.writeText(txt);alert('گزارش کپی شد.');}catch{alert('امکان اشتراک‌گذاری در این مرورگر فراهم نشد.');}}}
 };
-function reportRowsHtml(data){
- return data.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id).map((x,i)=>`<tr><td>${i+1}</td><td>${dateFa(x.date)}</td><td>${x.type==='income'?'دریافت':'هزینه'}</td><td>${esc(x.desc)}</td><td>${esc(x.category)}</td><td>${x.type==='income'?money(x.amount):'—'}</td><td>${x.type==='expense'?money(x.amount):'—'}</td><td>${esc(x.note||'')}</td></tr>`).join('');
+function rangeTitle(){return ($('from').value?dateFa($('from').value):'ابتدای سوابق')+' تا '+($('to').value?dateFa($('to').value):dateFa(today));}
+function csvCell(value){
+ let v=String(value??'');
+ if(/^[=+@\-\t\r]/.test(v))v="'"+v;
+ return '"'+v.replace(/"/g,'""')+'"';
 }
-function rangeTitle(){return ($('from').value?dateFa($('from').value):'ابتدای سوابق')+' تا '+($('to').value?dateFa($('to').value):'امروز');}
 function exportExcel(){
- const data=filtered();if(!data.length){alert('برای این بازه تراکنشی ثبت نشده است.');return;}
+ const data=filtered().slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id);
+ if(!data.length){alert('برای این بازه تراکنشی ثبت نشده است.');return;}
  const inc=sum(data,'income'),exp=sum(data,'expense'),endBal=balanceAt(rangeEnd());
- const htmlDoc=`<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><style>body{font-family:Tahoma,Arial,sans-serif;direction:rtl}table{border-collapse:collapse;width:100%}th,td{border:1px solid #777;padding:7px;text-align:right}th{background:#e5eee6}.title{text-align:center;font-size:18px;font-weight:bold}.sum td{background:#f4f7f4;font-weight:bold}.sign td{height:55px;text-align:center;vertical-align:bottom}</style></head><body><table><tr><td colspan="8" class="title">فرم گزارش تنخواه</td></tr><tr><td colspan="8">بازه گزارش: ${esc(rangeTitle())}</td></tr><tr class="sum"><td colspan="2">مانده اولیه</td><td colspan="2">${money(openingBalance)}</td><td>دریافتی</td><td>${money(inc)}</td><td>هزینه</td><td>${money(exp)}</td></tr><tr class="sum"><td colspan="3">خالص بازه</td><td>${money(inc-exp)}</td><td colspan="2">مانده پایان بازه</td><td colspan="2">${money(endBal)}</td></tr><tr><th>ردیف</th><th>تاریخ</th><th>نوع</th><th>شرح</th><th>دسته‌بندی</th><th>دریافتی (تومان)</th><th>هزینه (تومان)</th><th>توضیحات</th></tr>${reportRowsHtml(data)}<tr class="sign"><td colspan="3">تهیه‌کننده گزارش و امضا</td><td colspan="2">تحویل‌گیرنده و امضا</td><td colspan="3">تأیید صاحب‌کار</td></tr></table><p>مانده حساب = مانده اولیه + دریافت‌ها − هزینه‌ها</p><\/body><\/html>`;
- const blob=new Blob(['\uFEFF',htmlDoc],{type:'application/vnd.ms-excel;charset=utf-8'});
- const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='gozaresh-tankhah.xls';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+ const rows=[
+  ['گزارش تنخواه'],
+  ['بازه گزارش',rangeTitle()],
+  ['تاریخ تهیه گزارش',dateFa(today)],
+  ['مانده اولیه (تومان)',openingBalance],
+  ['جمع دریافتی‌ها (تومان)',inc],
+  ['جمع هزینه‌ها (تومان)',exp],
+  ['خالص بازه (تومان)',inc-exp],
+  ['مانده پایان بازه (تومان)',endBal],
+  [],
+  ['ردیف','تاریخ شمسی','نوع تراکنش','شرح','دریافتی (تومان)','هزینه (تومان)','توضیحات'],
+  ...data.map((x,i)=>[i+1,dateFa(x.date),x.type==='income'?'دریافت':'هزینه',x.desc,x.type==='income'?x.amount:'',x.type==='expense'?x.amount:'',x.note||'']),
+  [],['تهیه‌کننده گزارش و امضا','','','','تحویل‌گیرنده و امضا','','تأیید صاحب‌کار']
+ ];
+ const csv='\uFEFF'+rows.map(row=>row.map(csvCell).join(';')).join('\r\n');
+ const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='gozaresh-tankhah.csv';document.body.appendChild(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),3000);
 }
 $('excelBtn').onclick=exportExcel;
 function buildPrint(){
  const data=filtered();if(!data.length){alert('برای این بازه تراکنشی ثبت نشده است.');return false;}
  const inc=sum(data,'income'),exp=sum(data,'expense');
- $('printArea').innerHTML=`<h1>فرم گزارش تنخواه</h1><div class="print-sub">بازه گزارش: ${esc(rangeTitle())} | تاریخ تهیه: ${dateFa(today)}</div><div class="print-summary"><div>مانده اولیه: <b>${money(openingBalance)}</b></div><div>جمع دریافتی: <b>${money(inc)}</b></div><div>جمع هزینه: <b>${money(exp)}</b></div><div>مانده پایان بازه: <b>${money(balanceAt(rangeEnd()))}</b></div></div><table><thead><tr><th>ردیف</th><th>تاریخ</th><th>نوع</th><th>شرح</th><th>دسته‌بندی</th><th>دریافتی (تومان)</th><th>هزینه (تومان)</th><th>توضیحات</th></tr></thead><tbody>${reportRowsHtml(data)}</tbody></table><div class="signatures"><div>تهیه‌کننده گزارش<br><br>امضا</div><div>تحویل‌گیرنده<br><br>امضا</div><div>تأیید صاحب‌کار<br><br>امضا و تاریخ</div></div><div class="print-foot">مانده حساب = مانده اولیه + دریافت‌ها − هزینه‌ها</div>`;
+const rows=data.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id).map((x,i)=>`<tr><td>${i+1}</td><td>${dateFa(x.date)}</td><td>${x.type==='income'?'دریافت':'هزینه'}</td><td>${esc(x.desc)}</td><td>${x.type==='income'?money(x.amount):'—'}</td><td>${x.type==='expense'?money(x.amount):'—'}</td><td>${esc(x.note||'')}</td></tr>`).join('');
+  $('printArea').innerHTML=`<h1>فرم گزارش تنخواه</h1><div class="print-sub">بازه گزارش: ${esc(rangeTitle())} | تاریخ تهیه: ${dateFa(today)}</div><div class="print-summary"><div>مانده اولیه: <b>${money(openingBalance)}</b></div><div>جمع دریافتی: <b>${money(inc)}</b></div><div>جمع هزینه: <b>${money(exp)}</b></div><div>مانده پایان بازه: <b>${money(balanceAt(rangeEnd()))}</b></div></div><table><thead><tr><th>ردیف</th><th>تاریخ شمسی</th><th>نوع</th><th>شرح</th><th>دریافتی (تومان)</th><th>هزینه (تومان)</th><th>توضیحات</th></tr></thead><tbody>${rows}</tbody></table><div class="signatures"><div>تهیه‌کننده گزارش<br><br>امضا</div><div>تحویل‌گیرنده<br><br>امضا</div><div>تأیید صاحب‌کار<br><br>امضا و تاریخ</div></div><div class="print-foot">مانده حساب = مانده اولیه + دریافت‌ها − هزینه‌ها</div>`;
  return true;
 }
 $('printBtn').onclick=()=>{if(buildPrint())window.print();};
