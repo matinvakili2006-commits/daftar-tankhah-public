@@ -22,7 +22,7 @@ label{display:block;font-size:13px;font-weight:600;margin:12px 0 6px}
 input,select,textarea{width:100%;padding:13px;border:1px solid #d5dfd7;border-radius:11px;background:#fff;font:inherit;font-size:15px;color:var(--text)}
 textarea{min-height:68px;resize:vertical}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.date-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.date-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;direction:rtl}.date-fields select{min-width:0;padding:12px 5px;text-align:center;font-variant-numeric:tabular-nums}
 button{border:0;border-radius:12px;padding:12px 14px;font:inherit;font-weight:700;cursor:pointer}
 .primary{background:var(--green);color:white;width:100%;margin-top:15px}
 .secondary{background:#e8f2ea;color:#14532d}.blue{background:#eaf1ff;color:#1849a9}
@@ -149,15 +149,21 @@ function fromJalali(y,m,d){const start=new Date(y+621,2,20);for(let i=-5;i<380;i
 function setupPicker(prefix,iso){
  const key=toJalaliKey(iso)||toJalaliKey(today),[yy,mm,dd]=key.split('-').map(Number);
  const years=$(prefix+'Year'),months=$(prefix+'Month'),days=$(prefix+'Day');
- years.innerHTML='';for(let y=yy-5;y<=yy+5;y++)years.add(new Option(new Intl.NumberFormat('fa-IR').format(y),y));
- months.innerHTML=Array.from({length:12},(_,i)=>new Option(new Intl.NumberFormat('fa-IR').format(i+1),i+1)).join('');
+ const numberFa=n=>new Intl.NumberFormat('fa-IR',{useGrouping:false}).format(n);
+ // افزودن گزینه‌ها به شکل DOM واقعی؛ innerHTML و join روی Option در iOS گزینه معتبر نمی‌سازد.
+ const replaceOptions=(select,values)=>{
+   select.replaceChildren();
+   values.forEach(({label,value})=>select.add(new Option(label,String(value))));
+ };
+ replaceOptions(years,Array.from({length:11},(_,i)=>({label:numberFa(yy-5+i),value:yy-5+i})));
+ replaceOptions(months,Array.from({length:12},(_,i)=>({label:numberFa(i+1),value:i+1})));
  const fillDays=(wanted)=>{
    const y=Number(years.value),m=Number(months.value);let count=0;
    for(let d=1;d<=31;d++){if(fromJalali(y,m,d))count=d;else break;}
-   days.innerHTML=Array.from({length:count},(_,i)=>new Option(new Intl.NumberFormat('fa-IR').format(i+1),i+1)).join('');
+   replaceOptions(days,Array.from({length:count},(_,i)=>({label:numberFa(i+1),value:i+1})));
    days.value=String(Math.min(Number(wanted)||1,count));
  };
- years.value=yy;months.value=mm;fillDays(dd);
+ years.value=String(yy);months.value=String(mm);fillDays(dd);
  const update=()=>{$(prefix).value=fromJalali(Number(years.value),Number(months.value),Number(days.value));if(pickerReady&&(prefix==='from'||prefix==='to'))render();};
  years.onchange=()=>{fillDays(days.value);update();};months.onchange=()=>{fillDays(days.value);update();};days.onchange=update;update();
 }
