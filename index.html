@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14532d">
+<title>دفتر تنخواه</title>
+<style>
+:root{--green:#166534;--green2:#14532d;--bg:#f3f6f3;--card:#fff;--text:#17251b;--muted:#64736a;--line:#e2e9e3;--red:#b42318;--blue:#175cd3}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Vazirmatn","Tahoma",sans-serif}
+header{background:linear-gradient(135deg,#14532d,#15803d);color:white;padding:24px 18px 28px;border-radius:0 0 24px 24px}
+h1{font-size:24px;margin:0 0 5px}.sub{opacity:.88;font-size:13px}
+main{max-width:720px;margin:auto;padding:16px 14px 36px}
+.summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:-10px}
+.stat,.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px;box-shadow:0 3px 12px #15351b08}
+.stat small,.muted{color:var(--muted);font-size:12px}.stat strong{display:block;font-size:19px;margin-top:7px;overflow-wrap:anywhere}
+.stat.balance{grid-column:1/-1;border-color:#b8d9bf}
+.stat.balance strong{font-size:25px;color:var(--green)}
+.panel{margin-top:14px}.panel h2{font-size:17px;margin:0 0 14px}
+label{display:block;font-size:13px;font-weight:600;margin:12px 0 6px}
+input,select,textarea{width:100%;padding:13px;border:1px solid #d5dfd7;border-radius:11px;background:#fff;font:inherit;font-size:15px;color:var(--text)}
+textarea{min-height:68px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{border:0;border-radius:12px;padding:12px 14px;font:inherit;font-weight:700;cursor:pointer}
+.primary{background:var(--green);color:white;width:100%;margin-top:15px}
+.secondary{background:#e8f2ea;color:#14532d}.blue{background:#eaf1ff;color:#1849a9}
+.danger{background:#fff0ef;color:var(--red);padding:8px 10px;font-size:12px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.tab{background:#edf1ed;color:#435148}.tab.active.expenseTab{background:#14532d;color:white}.tab.active.incomeTab{background:#175cd3;color:white}
+.expense{padding:13px 0;border-bottom:1px solid var(--line)}.expense:last-child{border:0}
+.exp-head{display:flex;justify-content:space-between;gap:8px;align-items:start}.amount{font-weight:800;white-space:nowrap}.incomeText{color:#175cd3}.expenseText{color:#b42318}
+.empty{text-align:center;color:var(--muted);padding:20px 4px;font-size:14px}
+.pills{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}.pills button{font-size:12px;padding:8px 11px}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin-top:10px}
+table{width:100%;border-collapse:collapse;min-width:470px;font-size:12px;background:white}
+th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{background:#eef4ef;font-weight:700}tr:last-child td{border-bottom:0}
+.report-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.mini{background:#f7faf7;border:1px solid var(--line);border-radius:12px;padding:10px}
+.mini small{font-size:11px;color:var(--muted)}.mini b{display:block;margin-top:5px;font-size:14px}
+.note{background:#fff8e6;border:1px solid #f2dfad;border-radius:12px;padding:11px;font-size:12px;line-height:1.7;color:#705313;margin-top:12px}
+footer{text-align:center;color:var(--muted);font-size:11px;margin:20px 0;line-height:1.8}
+.hidden{display:none!important}
+#printArea{display:none}
+@media(min-width:650px){main{padding-left:22px;padding-right:22px}.summary{grid-template-columns:1fr 1fr 1fr}.stat.balance{grid-column:auto}.stat strong{font-size:18px}}
+@media print{
+ @page{size:A4 landscape;margin:12mm}
+ body{background:#fff!important;color:#111;font-family:Tahoma,Arial,sans-serif}
+ body>*:not(#printArea){display:none!important}
+ #printArea{display:block!important}
+ #printArea h1{font-size:19px;color:#111;text-align:center;margin:0 0 5px}
+ #printArea .print-sub{text-align:center;font-size:10px;margin-bottom:12px}
+ #printArea table{width:100%;min-width:0;border-collapse:collapse;font-size:10px}
+ #printArea th,#printArea td{border:1px solid #555;padding:6px 5px;white-space:normal}
+ #printArea th{background:#e8eee8!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ #printArea .print-summary{display:flex;gap:10px;justify-content:space-between;margin:10px 0}
+ #printArea .print-summary div{border:1px solid #777;padding:7px 10px;flex:1;font-size:11px}
+ #printArea .signatures{display:flex;justify-content:space-between;margin-top:34px;font-size:11px}
+ #printArea .signatures div{width:30%;border-top:1px solid #555;text-align:center;padding-top:7px}
+ #printArea .print-foot{font-size:9px;text-align:center;margin-top:14px}
+}
+</style>
+
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#14532d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="دفتر تنخواه">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+</head>
+<body>
+<header><h1>دفتر تنخواه من</h1><div class="sub">ثبت دریافت و هزینه، محاسبه مانده و گزارش قابل ارسال برای صاحب‌کار</div></header>
+<main>
+<section class="summary">
+ <div class="stat"><small>کل دریافتی‌ها</small><strong id="totalIncome">۰ تومان</strong></div>
+ <div class="stat"><small>کل هزینه‌ها</small><strong id="totalExpense">۰ تومان</strong></div>
+ <div class="stat balance"><small>مانده حساب فعلی</small><strong id="currentBalance">۰ تومان</strong></div>
+</section>
+
+<section class="panel">
+ <h2 id="formTitle">ثبت تراکنش جدید</h2>
+ <div class="tabs">
+  <button type="button" id="expenseTab" class="tab active expenseTab">ثبت هزینه</button>
+  <button type="button" id="incomeTab" class="tab incomeTab">ثبت دریافت پول</button>
+ </div>
+ <form id="transactionForm">
+  <label for="date">تاریخ</label><input id="date" type="date" required>
+  <label for="desc">شرح</label><input id="desc" maxlength="120" placeholder="مثلاً خرید سیمان یا دریافت تنخواه" required>
+  <div class="row">
+   <div><label for="amount">مبلغ (تومان)</label><input id="amount" type="number" min="1" step="1" inputmode="numeric" placeholder="مثلاً ۲۵۰۰۰۰۰" required></div>
+   <div><label for="category">دسته‌بندی</label><select id="category"></select></div>
+  </div>
+  <label for="note">توضیحات (اختیاری)</label><textarea id="note" maxlength="300" placeholder="نام فروشنده، بابت چه کاری یا توضیح اضافه"></textarea>
+  <button class="primary" type="submit" id="saveBtn">＋ ثبت هزینه</button>
+  <button class="secondary hidden" type="button" id="cancelEdit" style="width:100%;margin-top:8px">لغو ویرایش</button>
+ </form>
+</section>
+
+<section class="panel">
+ <h2>مانده اولیه حساب</h2>
+ <div class="muted">اگر قبل از شروع ثبت در این برنامه پولی در اختیار دارید، مبلغ آن را وارد کنید. در غیر این صورت صفر بماند.</div>
+ <label for="openingBalance">موجودی اولیه (تومان)</label>
+ <input id="openingBalance" type="number" min="0" step="1" inputmode="numeric" placeholder="۰">
+ <button class="secondary" id="saveOpening" style="width:100%;margin-top:10px">ذخیره مانده اولیه</button>
+</section>
+
+<section class="panel">
+ <h2>گزارش روزانه و ماهانه</h2>
+ <div class="pills">
+  <button class="secondary" id="todayBtn">امروز</button>
+  <button class="secondary" id="monthBtn">این ماه</button>
+  <button class="secondary" id="allBtn">همه سوابق</button>
+ </div>
+ <div class="row">
+  <div><label for="from">از تاریخ</label><input id="from" type="date"></div>
+  <div><label for="to">تا تاریخ</label><input id="to" type="date"></div>
+ </div>
+ <label for="groupMode">نحوه خلاصه گزارش</label>
+ <select id="groupMode"><option value="day">گزارش روزانه</option><option value="month">گزارش ماهانه</option></select>
+ <div class="report-cards">
+  <div class="mini"><small>دریافتی در بازه</small><b id="rangeIncome">۰ تومان</b></div>
+  <div class="mini"><small>هزینه در بازه</small><b id="rangeExpense">۰ تومان</b></div>
+  <div class="mini"><small>خالص بازه (دریافتی منهای هزینه)</small><b id="rangeNet">۰ تومان</b></div>
+  <div class="mini"><small>مانده در پایان بازه</small><b id="rangeBalance">۰ تومان</b></div>
+ </div>
+ <div id="groupedReport"></div>
+ <div class="actions">
+  <button class="secondary" id="shareBtn">ارسال گزارش</button>
+  <button class="blue" id="excelBtn">دریافت فایل Excel</button>
+ </div>
+ <button class="secondary" id="printBtn" style="width:100%;margin-top:9px">چاپ فرم گزارش</button>
+ <div class="note">مانده حساب = مانده اولیه + تمام دریافت‌ها − تمام هزینه‌ها. «مانده پایان بازه» بر اساس همه تراکنش‌های ثبت‌شده تا تاریخ پایان گزارش محاسبه می‌شود.</div>
+</section>
+
+<section class="panel">
+ <h2>فهرست تراکنش‌ها</h2>
+ <div class="muted">برای ویرایش یا حذف هر ردیف از دکمه‌های همان ردیف استفاده کنید.</div>
+ <div id="list"></div>
+</section>
+<footer>اطلاعات این نسخه فقط روی همین گوشی و در حافظه مرورگر ذخیره می‌شود. برای نگهداری مطمئن، مرتب خروجی Excel را ذخیره کنید و گزارش را برای صاحب‌کار بفرستید.</footer>
+</main>
+<section id="printArea"></section>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const KEY='daftar-tankhah-v1';
+const OLD_KEY='daftar-tankhah-v1';
+function localToday(){const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}
+const today=localToday();
+function readItems(){
+ try{
+  const raw=JSON.parse(localStorage.getItem(KEY)||'[]');
+  if(!Array.isArray(raw))return [];
+  return raw.map(x=>({...x,type:x.type==='income'?'income':'expense',amount:Number(x.amount)||0}));
+ }catch{return [];}
+}
+let items=readItems(), editing=null, formType='expense';
+let openingBalance=Number(localStorage.getItem('daftar-tankhah-opening')||0);
+$('date').value=today;$('openingBalance').value=openingBalance;
+const expenseCategories=['خرید مصالح','دستمزد','حمل‌ونقل','ابزار و تجهیزات','خوراک و پذیرایی','قبوض و خدمات','سایر هزینه‌ها'];
+const incomeCategories=['دریافت تنخواه','شارژ مجدد تنخواه','دریافت بابت تسویه','سایر دریافتی‌ها'];
+const money=n=>new Intl.NumberFormat('fa-IR').format(Math.round(n||0))+' تومان';
+const dateFa=s=>{if(!s)return '';const [y,m,d]=s.split('-').map(Number);return new Intl.DateTimeFormat('fa-IR').format(new Date(y,m-1,d));};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sum=(data,type)=>data.filter(x=>x.type===type).reduce((a,x)=>a+x.amount,0);
+function save(){localStorage.setItem(KEY,JSON.stringify(items));render();}
+function setType(type){
+ formType=type;
+ $('expenseTab').classList.toggle('active',type==='expense');
+ $('incomeTab').classList.toggle('active',type==='income');
+ $('saveBtn').textContent=editing?'ذخیره تغییرات':(type==='income'?'＋ ثبت دریافت پول':'＋ ثبت هزینه');
+ $('desc').placeholder=type==='income'?'مثلاً دریافت تنخواه از صاحب‌کار':'مثلاً خرید سیمان یا کرایه حمل';
+ $('category').innerHTML=(type==='income'?incomeCategories:expenseCategories).map(x=>`<option>${x}</option>`).join('');
+}
+$('expenseTab').onclick=()=>setType('expense');$('incomeTab').onclick=()=>setType('income');
+$('transactionForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const x={id:editing||Date.now(),type:formType,date:$('date').value,desc:$('desc').value.trim(),amount:Number($('amount').value),category:$('category').value,note:$('note').value.trim()};
+ if(!x.date||!x.desc||!Number.isFinite(x.amount)||x.amount<1){alert('لطفاً تاریخ، شرح و مبلغ معتبر وارد کنید.');return;}
+ if(editing)items=items.map(a=>a.id===editing?x:a);else items.push(x);
+ resetForm();save();
+});
+function resetForm(){editing=null;$('transactionForm').reset();$('date').value=today;$('formTitle').textContent='ثبت تراکنش جدید';$('cancelEdit').classList.add('hidden');setType('expense');}
+window.editItem=id=>{
+ const x=items.find(a=>a.id===id);if(!x)return;
+ editing=id;setType(x.type);$('date').value=x.date;$('desc').value=x.desc;$('amount').value=x.amount;$('category').value=x.category;$('note').value=x.note||'';
+ $('formTitle').textContent='ویرایش تراکنش';$('saveBtn').textContent='ذخیره تغییرات';$('cancelEdit').classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'});
+};
+window.deleteItem=id=>{if(confirm('این تراکنش حذف شود؟')){items=items.filter(x=>x.id!==id);save();}};
+$('cancelEdit').onclick=resetForm;
+$('saveOpening').onclick=()=>{
+ const n=Number($('openingBalance').value);
+ if(!Number.isFinite(n)||n<0){alert('مانده اولیه باید صفر یا یک مبلغ مثبت باشد.');return;}
+ openingBalance=n;localStorage.setItem('daftar-tankhah-opening',String(n));render();alert('مانده اولیه ذخیره شد.');
+};
+function inRange(x){return (!$('from').value||x.date>=$('from').value)&&(!$('to').value||x.date<=$('to').value);}
+function filtered(){return items.filter(inRange).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);}
+function balanceAt(date){return openingBalance+items.filter(x=>x.date<=date).reduce((v,x)=>v+(x.type==='income'?x.amount:-x.amount),0);}
+function rangeEnd(){return $('to').value||today;}
+function renderGrouped(data){
+ const groups={};
+ data.forEach(x=>{const key=$('groupMode').value==='month'?x.date.slice(0,7):x.date;if(!groups[key])groups[key]={income:0,expense:0};groups[key][x.type]+=x.amount;});
+ const keys=Object.keys(groups).sort().reverse();
+ if(!keys.length){$('groupedReport').innerHTML='<div class="empty">برای این بازه گزارشی وجود ندارد.</div>';return;}
+ const rows=keys.map(k=>{const g=groups[k],label=$('groupMode').value==='month'?new Intl.DateTimeFormat('fa-IR',{year:'numeric',month:'long'}).format(new Date(Number(k.slice(0,4)),Number(k.slice(5,7))-1,1)):dateFa(k);return `<tr><td>${label}</td><td class="incomeText">${money(g.income)}</td><td class="expenseText">${money(g.expense)}</td><td>${money(g.income-g.expense)}</td></tr>`;}).join('');
+ $('groupedReport').innerHTML=`<div class="table-wrap"><table><thead><tr><th>${$('groupMode').value==='month'?'ماه':'روز'}</th><th>دریافتی</th><th>هزینه</th><th>خالص</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function render(){
+ const allIncome=sum(items,'income'),allExpense=sum(items,'expense');
+ $('totalIncome').textContent=money(allIncome);$('totalExpense').textContent=money(allExpense);$('currentBalance').textContent=money(openingBalance+allIncome-allExpense);
+ const data=filtered(),inc=sum(data,'income'),exp=sum(data,'expense'),net=inc-exp;
+ $('rangeIncome').textContent=money(inc);$('rangeExpense').textContent=money(exp);$('rangeNet').textContent=money(net);
+ $('rangeBalance').textContent=money(balanceAt(rangeEnd()));
+ renderGrouped(data);
+ $('list').innerHTML=data.length?data.map(x=>`<div class="expense"><div class="exp-head"><div><b>${esc(x.desc)}</b><div class="muted">${dateFa(x.date)} · ${esc(x.category)} · <span class="${x.type==='income'?'incomeText':'expenseText'}">${x.type==='income'?'دریافت':'هزینه'}</span></div></div><div class="amount ${x.type==='income'?'incomeText':'expenseText'}">${x.type==='income'?'+':'−'} ${money(x.amount)}</div></div>${x.note?`<div class="muted" style="margin-top:6px">${esc(x.note)}</div>`:''}<div class="actions"><button class="secondary" onclick="editItem(${x.id})">ویرایش</button><button class="danger" onclick="deleteItem(${x.id})">حذف</button></div></div>`).join(''):'<div class="empty">هنوز تراکنشی در این بازه ثبت نشده است.</div>';
+}
+$('from').onchange=render;$('to').onchange=render;$('groupMode').onchange=render;
+$('todayBtn').onclick=()=>{$('from').value=today;$('to').value=today;render();};
+$('monthBtn').onclick=()=>{$('from').value=today.slice(0,7)+'-01';$('to').value=today;render();};
+$('allBtn').onclick=()=>{$('from').value='';$('to').value='';render();};
+
+function reportText(){
+ const data=filtered(),inc=sum(data,'income'),exp=sum(data,'expense');
+ const lines=['گزارش تنخواه','از تاریخ: '+($('from').value?dateFa($('from').value):'ابتدای سوابق'),'تا تاریخ: '+($('to').value?dateFa($('to').value):'امروز'),'مانده اولیه: '+money(openingBalance),'دریافتی این بازه: '+money(inc),'هزینه این بازه: '+money(exp),'خالص این بازه: '+money(inc-exp),'مانده پایان بازه: '+money(balanceAt(rangeEnd())),'','شرح تراکنش‌ها:'];
+ data.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id).forEach((x,i)=>lines.push(`${i+1}) ${dateFa(x.date)} | ${x.type==='income'?'دریافت':'هزینه'} | ${x.desc} | ${x.category} | ${money(x.amount)}${x.note?' | '+x.note:''}`));
+ return lines.join('\n');
+}
+$('shareBtn').onclick=async()=>{
+ if(!filtered().length){alert('برای این بازه تراکنشی ثبت نشده است.');return;}
+ const txt=reportText();
+ try{if(navigator.share)await navigator.share({title:'گزارش تنخواه',text:txt});else{await navigator.clipboard.writeText(txt);alert('گزارش کپی شد؛ آن را در واتساپ یا پیام‌رسان ارسال کنید.');}}
+ catch(e){if(e.name!=='AbortError'){try{await navigator.clipboard.writeText(txt);alert('گزارش کپی شد.');}catch{alert('امکان اشتراک‌گذاری در این مرورگر فراهم نشد.');}}}
+};
+function reportRowsHtml(data){
+ return data.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id).map((x,i)=>`<tr><td>${i+1}</td><td>${dateFa(x.date)}</td><td>${x.type==='income'?'دریافت':'هزینه'}</td><td>${esc(x.desc)}</td><td>${esc(x.category)}</td><td>${x.type==='income'?money(x.amount):'—'}</td><td>${x.type==='expense'?money(x.amount):'—'}</td><td>${esc(x.note||'')}</td></tr>`).join('');
+}
+function rangeTitle(){return ($('from').value?dateFa($('from').value):'ابتدای سوابق')+' تا '+($('to').value?dateFa($('to').value):'امروز');}
+function exportExcel(){
+ const data=filtered();if(!data.length){alert('برای این بازه تراکنشی ثبت نشده است.');return;}
+ const inc=sum(data,'income'),exp=sum(data,'expense'),endBal=balanceAt(rangeEnd());
+ const htmlDoc=`<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><style>body{font-family:Tahoma,Arial,sans-serif;direction:rtl}table{border-collapse:collapse;width:100%}th,td{border:1px solid #777;padding:7px;text-align:right}th{background:#e5eee6}.title{text-align:center;font-size:18px;font-weight:bold}.sum td{background:#f4f7f4;font-weight:bold}.sign td{height:55px;text-align:center;vertical-align:bottom}</style>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#14532d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="دفتر تنخواه">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+</head><body><table><tr><td colspan="8" class="title">فرم گزارش تنخواه</td></tr><tr><td colspan="8">بازه گزارش: ${esc(rangeTitle())}</td></tr><tr class="sum"><td colspan="2">مانده اولیه</td><td colspan="2">${money(openingBalance)}</td><td>دریافتی</td><td>${money(inc)}</td><td>هزینه</td><td>${money(exp)}</td></tr><tr class="sum"><td colspan="3">خالص بازه</td><td>${money(inc-exp)}</td><td colspan="2">مانده پایان بازه</td><td colspan="2">${money(endBal)}</td></tr><tr><th>ردیف</th><th>تاریخ</th><th>نوع</th><th>شرح</th><th>دسته‌بندی</th><th>دریافتی (تومان)</th><th>هزینه (تومان)</th><th>توضیحات</th></tr>${reportRowsHtml(data)}<tr class="sign"><td colspan="3">تهیه‌کننده گزارش و امضا</td><td colspan="2">تحویل‌گیرنده و امضا</td><td colspan="3">تأیید صاحب‌کار</td></tr></table><p>مانده حساب = مانده اولیه + دریافت‌ها − هزینه‌ها</p></body></html>`;
+ const blob=new Blob(['\uFEFF',htmlDoc],{type:'application/vnd.ms-excel;charset=utf-8'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='gozaresh-tankhah.xls';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+$('excelBtn').onclick=exportExcel;
+function buildPrint(){
+ const data=filtered();if(!data.length){alert('برای این بازه تراکنشی ثبت نشده است.');return false;}
+ const inc=sum(data,'income'),exp=sum(data,'expense');
+ $('printArea').innerHTML=`<h1>فرم گزارش تنخواه</h1><div class="print-sub">بازه گزارش: ${esc(rangeTitle())} | تاریخ تهیه: ${dateFa(today)}</div><div class="print-summary"><div>مانده اولیه: <b>${money(openingBalance)}</b></div><div>جمع دریافتی: <b>${money(inc)}</b></div><div>جمع هزینه: <b>${money(exp)}</b></div><div>مانده پایان بازه: <b>${money(balanceAt(rangeEnd()))}</b></div></div><table><thead><tr><th>ردیف</th><th>تاریخ</th><th>نوع</th><th>شرح</th><th>دسته‌بندی</th><th>دریافتی (تومان)</th><th>هزینه (تومان)</th><th>توضیحات</th></tr></thead><tbody>${reportRowsHtml(data)}</tbody></table><div class="signatures"><div>تهیه‌کننده گزارش<br><br>امضا</div><div>تحویل‌گیرنده<br><br>امضا</div><div>تأیید صاحب‌کار<br><br>امضا و تاریخ</div></div><div class="print-foot">مانده حساب = مانده اولیه + دریافت‌ها − هزینه‌ها</div>`;
+ return true;
+}
+$('printBtn').onclick=()=>{if(buildPrint())window.print();};
+setType('expense');render();
+</script>
+</body>
+</html>
