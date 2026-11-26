@@ -36,6 +36,8 @@ button{border:0;border-radius:12px;padding:12px 14px;font:inherit;font-weight:70
 .pills{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}.pills button{font-size:12px;padding:8px 11px}
 .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin-top:10px}
 table{width:100%;border-collapse:collapse;min-width:470px;font-size:12px;background:white}
+#printArea{direction:rtl}
+#printArea td,#printArea th{overflow-wrap:anywhere}
 th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
 th{background:#eef4ef;font-weight:700}tr:last-child td{border-bottom:0}
 .report-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
@@ -82,7 +84,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;margin:20px 0;line-he
  <form id="transactionForm">
   <label for="date">تاریخ شمسی (مثلاً 1405/11/30)</label><input id="date" type="text" inputmode="numeric" autocomplete="off" placeholder="1405/11/30" maxlength="10" required>
   <label for="desc">شرح</label><input id="desc" maxlength="120" placeholder="مثلاً خرید سیمان یا دریافت تنخواه" required>
-  <label for="amount">مبلغ (تومان)</label><input id="amount" type="number" min="1" step="1" inputmode="numeric" placeholder="مثلاً ۲۵۰۰۰۰۰" required>
+  <label for="amount">مبلغ (تومان)</label><input id="amount" type="text" inputmode="numeric" autocomplete="off" placeholder="مثلاً ۲۵۰۰۰۰۰" required>
   <label for="note">توضیحات (اختیاری)</label><textarea id="note" maxlength="300" placeholder="نام فروشنده، بابت چه کاری یا توضیح اضافه"></textarea>
   <button class="primary" type="submit" id="saveBtn">＋ ثبت هزینه</button>
   <button class="secondary hidden" type="button" id="cancelEdit" style="width:100%;margin-top:8px">لغو ویرایش</button>
@@ -93,7 +95,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;margin:20px 0;line-he
  <h2>مانده اولیه حساب</h2>
  <div class="muted">اگر قبل از شروع ثبت در این برنامه پولی در اختیار دارید، مبلغ آن را وارد کنید. در غیر این صورت صفر بماند.</div>
  <label for="openingBalance">موجودی اولیه (تومان)</label>
- <input id="openingBalance" type="number" min="0" step="1" inputmode="numeric" placeholder="۰">
+ <input id="openingBalance" type="text" inputmode="numeric" autocomplete="off" placeholder="۰">
  <button class="secondary" id="saveOpening" style="width:100%;margin-top:10px">ذخیره مانده اولیه</button>
 </section>
 
@@ -130,188 +132,782 @@ footer{text-align:center;color:var(--muted);font-size:11px;margin:20px 0;line-he
  <div class="muted">برای ویرایش یا حذف هر ردیف از دکمه‌های همان ردیف استفاده کنید.</div>
  <div id="list"></div>
 </section>
-<footer>اطلاعات این نسخه فقط روی همین گوشی و در حافظه مرورگر ذخیره می‌شود. برای نگهداری مطمئن، مرتب خروجی Excel را ذخیره کنید و گزارش را برای صاحب‌کار بفرستید.</footer>
+<footer>اطلاعات این نسخه فقط روی همین گوشی و در حافظه مرورگر ذخیره می‌شود. برای نگهداری مطمئن، مرتب خروجی اکسل را ذخیره کنید و گزارش را برای صاحب‌کار بفرستید.</footer>
 </main>
 <section id="printArea"></section>
 <script>
 'use strict';
-const $=id=>document.getElementById(id);
-const KEY='daftar-tankhah-v1';
-const OLD_KEY='daftar-tankhah-v1';
-function gregorianKey(d){return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');}
-const jalaliFmt=new Intl.DateTimeFormat('en-US-u-ca-persian-nu-latn',{year:'numeric',month:'numeric',day:'numeric'});
-function jalaliParts(date){const p=jalaliFmt.formatToParts(date),o={};p.forEach(x=>{if(x.type==='year'||x.type==='month'||x.type==='day')o[x.type]=Number(x.value)});return o;}
-function localToday(){return gregorianKey(new Date());}
-const today=localToday();
-const jalaliMonths=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
-function toJalaliKey(iso){if(!iso)return '';const [y,m,d]=iso.split('-').map(Number),p=jalaliParts(new Date(y,m-1,d));return [p.year,String(p.month).padStart(2,'0'),String(p.day).padStart(2,'0')].join('-');}
-function fromJalali(y,m,d){const start=new Date(y+621,2,20);for(let i=-5;i<380;i++){const x=new Date(start);x.setDate(start.getDate()+i);const p=jalaliParts(x);if(p.year===y&&p.month===m&&p.day===d)return gregorianKey(x);}return '';}
-function normalizeDigits(value){return String(value||'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).trim();}
-function parseJalaliInput(value){
- const raw=normalizeDigits(value).replace(/[-.]/g,'/');
- const match=raw.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
- if(!match)return '';
- const y=Number(match[1]),m=Number(match[2]),d=Number(match[3]);
- if(y<1200||y>1600||m<1||m>12||d<1||d>31)return '';
- return fromJalali(y,m,d);
-}
-function todayJalali(){const p=jalaliParts(new Date());return `${p.year}/${String(p.month).padStart(2,'0')}/${String(p.day).padStart(2,'0')}`;}
-function formatJalaliInput(iso){return iso?toJalaliKey(iso).replace(/-/g,'/'):'';}
-function updateDateFilter(){
- const fromText=$('from').value.trim(),toText=$('to').value.trim();
- const fromIso=fromText?parseJalaliInput(fromText):'',toIso=toText?parseJalaliInput(toText):'';
- if(fromText&&!fromIso){$('groupedReport').innerHTML='<div class="empty">تاریخ شروع معتبر نیست؛ مانند 1405/11/01 وارد کنید.</div>';return false;}
- if(toText&&!toIso){$('groupedReport').innerHTML='<div class="empty">تاریخ پایان معتبر نیست؛ مانند 1405/11/30 وارد کنید.</div>';return false;}
- if(fromIso&&toIso&&fromIso>toIso){$('groupedReport').innerHTML='<div class="empty">تاریخ شروع نباید بعد از تاریخ پایان باشد.</div>';return false;}
- return true;
-}
-function readItems(){
- try{
-  const raw=JSON.parse(localStorage.getItem(KEY)||'[]');
-  if(!Array.isArray(raw))return [];
-  return raw.map(x=>({...x,type:x.type==='income'?'income':'expense',amount:Number(x.amount)||0}));
- }catch{return [];}
-}
-let items=readItems(), editing=null, formType='expense';
-let openingBalance=Number(localStorage.getItem('daftar-tankhah-opening')||0);
-$('openingBalance').value=openingBalance;$('date').value=todayJalali();$('from').value='';$('to').value='';
-const money=n=>new Intl.NumberFormat('fa-IR').format(Math.round(n||0))+' تومان';
-const dateFa=s=>{if(!s)return '';return toJalaliKey(s).replace(/-/g,'/');};
-const enteredDateFa=id=>{const v=$(id).value.trim();return v?(parseJalaliInput(v)?dateFa(parseJalaliInput(v)):v):'';};
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const sum=(data,type)=>data.filter(x=>x.type===type).reduce((a,x)=>a+x.amount,0);
-pickerReady=true;
 
-function save(){localStorage.setItem(KEY,JSON.stringify(items));render();}
-function setType(type){
- formType=type;
- $('expenseTab').classList.toggle('active',type==='expense');
- $('incomeTab').classList.toggle('active',type==='income');
- $('saveBtn').textContent=editing?'ذخیره تغییرات':(type==='income'?'＋ ثبت دریافت پول':'＋ ثبت هزینه');
- $('desc').placeholder=type==='income'?'مثلاً دریافت تنخواه از صاحب‌کار':'مثلاً خرید سیمان یا کرایه حمل';
-}
-$('expenseTab').onclick=()=>setType('expense');$('incomeTab').onclick=()=>setType('income');
-$('transactionForm').addEventListener('submit',e=>{
- e.preventDefault();
- const enteredDate=$('date').value.trim();const convertedDate=parseJalaliInput(enteredDate);
-  const x={id:editing||Date.now(),type:formType,date:convertedDate,desc:$('desc').value.trim(),amount:Number($('amount').value),note:$('note').value.trim()};
- if(!x.date||!x.desc||!Number.isFinite(x.amount)||x.amount<1){alert('تاریخ را به شکل 1405/11/30 و شرح و مبلغ معتبر وارد کنید.');return;}
- if(editing)items=items.map(a=>a.id===editing?x:a);else items.push(x);
- resetForm();save();
+const $ = id => document.getElementById(id);
+const KEY = 'daftar-tankhah-v1';
+const OPENING_KEY = 'daftar-tankhah-opening';
+const DAY_MS = 24 * 60 * 60 * 1000;
+const jalaliFormatter = new Intl.DateTimeFormat('en-US-u-ca-persian-nu-latn', {
+  timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric'
 });
-function resetForm(){editing=null;$('transactionForm').reset();$('date').value=todayJalali();$('formTitle').textContent='ثبت تراکنش جدید';$('cancelEdit').classList.add('hidden');setType('expense');}
-window.editItem=id=>{
- const x=items.find(a=>a.id===id);if(!x)return;
- editing=id;setType(x.type);$('date').value=formatJalaliInput(x.date);$('desc').value=x.desc;$('amount').value=x.amount;$('note').value=x.note||'';
- $('formTitle').textContent='ویرایش تراکنش';$('saveBtn').textContent='ذخیره تغییرات';$('cancelEdit').classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'});
-};
-window.deleteItem=id=>{if(confirm('این تراکنش حذف شود؟')){items=items.filter(x=>x.id!==id);save();}};
-$('cancelEdit').onclick=resetForm;
-$('saveOpening').onclick=()=>{
- const n=Number($('openingBalance').value);
- if(!Number.isFinite(n)||n<0){alert('مانده اولیه باید صفر یا یک مبلغ مثبت باشد.');return;}
- openingBalance=n;localStorage.setItem('daftar-tankhah-opening',String(n));render();alert('مانده اولیه ذخیره شد.');
-};
-function inRange(x){const f=$('from').value.trim()?parseJalaliInput($('from').value):'',t=$('to').value.trim()?parseJalaliInput($('to').value):'';return (!f||x.date>=f)&&(!t||x.date<=t);}
-function filtered(){return items.filter(inRange).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);}
-function balanceAt(date){return openingBalance+items.filter(x=>x.date<=date).reduce((v,x)=>v+(x.type==='income'?x.amount:-x.amount),0);}
-function rangeEnd(){return $('to').value.trim()?parseJalaliInput($('to').value)||today:today;}
-function renderGrouped(data){
- const groups={};
- data.forEach(x=>{const key=$('groupMode').value==='month'?toJalaliKey(x.date).slice(0,7):x.date;if(!groups[key])groups[key]={income:0,expense:0};groups[key][x.type]+=x.amount;});
- const keys=Object.keys(groups).sort().reverse();
- if(!keys.length){$('groupedReport').innerHTML='<div class="empty">برای این بازه گزارشی وجود ندارد.</div>';return;}
- const rows=keys.map(k=>{const g=groups[k],parts=k.split('-').map(Number),label=$('groupMode').value==='month'?`${jalaliMonths[parts[1]-1]} ${new Intl.NumberFormat('fa-IR').format(parts[0])}`:dateFa(k);return `<tr><td>${label}</td><td class="incomeText">${money(g.income)}</td><td class="expenseText">${money(g.expense)}</td><td>${money(g.income-g.expense)}</td></tr>`;}).join('');
- $('groupedReport').innerHTML=`<div class="table-wrap"><table><thead><tr><th>${$('groupMode').value==='month'?'ماه':'روز'}</th><th>دریافتی</th><th>هزینه</th><th>خالص</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-}
-function render(){
- const allIncome=sum(items,'income'),allExpense=sum(items,'expense');
- $('totalIncome').textContent=money(allIncome);$('totalExpense').textContent=money(allExpense);$('currentBalance').textContent=money(openingBalance+allIncome-allExpense);
- const data=filtered(),inc=sum(data,'income'),exp=sum(data,'expense'),net=inc-exp;
- $('rangeIncome').textContent=money(inc);$('rangeExpense').textContent=money(exp);$('rangeNet').textContent=money(net);
- $('rangeBalance').textContent=money(balanceAt(rangeEnd()));
- renderGrouped(data);
- $('list').innerHTML=data.length?data.map(x=>`<div class="expense"><div class="exp-head"><div><b>${esc(x.desc)}</b><div class="muted">${dateFa(x.date)} · <span class="${x.type==='income'?'incomeText':'expenseText'}">${x.type==='income'?'دریافت':'هزینه'}</span></div></div><div class="amount ${x.type==='income'?'incomeText':'expenseText'}">${x.type==='income'?'+':'−'} ${money(x.amount)}</div></div>${x.note?`<div class="muted" style="margin-top:6px">${esc(x.note)}</div>`:''}<div class="actions"><button class="secondary" onclick="editItem(${x.id})">ویرایش</button><button class="danger" onclick="deleteItem(${x.id})">حذف</button></div></div>`).join(''):'<div class="empty">هنوز تراکنشی در این بازه ثبت نشده است.</div>';
-}
-$('groupMode').onchange=render;
-$('todayBtn').onclick=()=>{$('from').value=todayJalali();$('to').value=todayJalali();render();};
-$('monthBtn').onclick=()=>{const p=jalaliParts(new Date());$('from').value=`${p.year}/${String(p.month).padStart(2,'0')}/01`;$('to').value=todayJalali();render();};
-$('allBtn').onclick=()=>{$('from').value='';$('to').value='';render();};
-$('from').addEventListener('change',render);$('to').addEventListener('change',render);
+let lastId = Date.now();
+let items = [];
+let editing = null;
+let formType = 'expense';
+let openingBalance = 0;
+let storageWarning = false;
 
-function reportText(){
- const data=filtered().slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id);
- const inc=sum(data,'income'),exp=sum(data,'expense'),end=balanceAt(rangeEnd());
- const line='━━━━━━━━━━━━━━━━━━━━';
- const lines=[
-  'گزارش مالی تنخواه',line,
-  'بازه گزارش: '+($('from').value?enteredDateFa('from'):'از ابتدای سوابق')+' تا '+($('to').value?enteredDateFa('to'):dateFa(today)),
-  'تاریخ تهیه گزارش: '+dateFa(today),line,
-  'خلاصه حساب',
-  'مانده اولیه: '+money(openingBalance),
-  'جمع دریافتی‌ها: '+money(inc),
-  'جمع هزینه‌ها: '+money(exp),
-  'خالص این بازه: '+money(inc-exp),
-  'مانده حساب در پایان بازه: '+money(end),line,
-  'ریز تراکنش‌ها'
- ];
- data.forEach((x,i)=>lines.push(
-  `${i+1}. ${dateFa(x.date)} | ${x.type==='income'?'دریافت وجه':'پرداخت هزینه'}`,
-  'شرح: '+x.desc,
-  'مبلغ: '+money(x.amount),
-  ...(x.note?['توضیحات: '+x.note]:[]),
-  line
- ));
- lines.push('فرمول محاسبه: مانده اولیه + جمع دریافتی‌ها − جمع هزینه‌ها');
- lines.push('این گزارش از دفتر ثبت تنخواه تهیه شده است.');
- return lines.join('\n');
+function normalizeDigits(value) {
+  return String(value ?? '')
+    .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+    .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+    .trim();
 }
-$('shareBtn').onclick=async()=>{
- if(!filtered().length){alert('برای این بازه تراکنشی ثبت نشده است.');return;}
- const txt=reportText();
- try{if(navigator.share)await navigator.share({title:'گزارش تنخواه',text:txt});else{await navigator.clipboard.writeText(txt);alert('گزارش کپی شد؛ آن را در واتساپ یا پیام‌رسان ارسال کنید.');}}
- catch(e){if(e.name!=='AbortError'){try{await navigator.clipboard.writeText(txt);alert('گزارش کپی شد.');}catch{alert('امکان اشتراک‌گذاری در این مرورگر فراهم نشد.');}}}
-};
-function rangeTitle(){return ($('from').value?enteredDateFa('from'):'ابتدای سوابق')+' تا '+($('to').value?enteredDateFa('to'):dateFa(today));}
-function csvCell(value){
- let v=String(value??'');
- if(/^[=+@\-\t\r]/.test(v))v="'"+v;
- return '"'+v.replace(/"/g,'""')+'"';
+
+function isoFromLocalDate(date) {
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
 }
-function exportExcel(){
- const data=filtered().slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id);
- if(!data.length){alert('برای این بازه تراکنشی ثبت نشده است.');return;}
- const inc=sum(data,'income'),exp=sum(data,'expense'),endBal=balanceAt(rangeEnd());
- const rows=[
-  ['گزارش تنخواه'],
-  ['بازه گزارش',rangeTitle()],
-  ['تاریخ تهیه گزارش',dateFa(today)],
-  ['مانده اولیه (تومان)',openingBalance],
-  ['جمع دریافتی‌ها (تومان)',inc],
-  ['جمع هزینه‌ها (تومان)',exp],
-  ['خالص بازه (تومان)',inc-exp],
-  ['مانده پایان بازه (تومان)',endBal],
-  [],
-  ['ردیف','تاریخ شمسی','نوع تراکنش','شرح','دریافتی (تومان)','هزینه (تومان)','توضیحات'],
-  ...data.map((x,i)=>[i+1,dateFa(x.date),x.type==='income'?'دریافت':'هزینه',x.desc,x.type==='income'?x.amount:'',x.type==='expense'?x.amount:'',x.note||'']),
-  [],['تهیه‌کننده گزارش و امضا','','','','تحویل‌گیرنده و امضا','','تأیید صاحب‌کار']
- ];
- const csv='\uFEFF'+rows.map(row=>row.map(csvCell).join(';')).join('\r\n');
- const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
- const url=URL.createObjectURL(blob),a=document.createElement('a');
- a.href=url;a.download='gozaresh-tankhah.csv';document.body.appendChild(a);a.click();a.remove();
- setTimeout(()=>URL.revokeObjectURL(url),3000);
+
+function todayIso() {
+  return isoFromLocalDate(new Date());
 }
-$('excelBtn').onclick=exportExcel;
-function buildPrint(){
- const data=filtered();if(!data.length){alert('برای این بازه تراکنشی ثبت نشده است.');return false;}
- const inc=sum(data,'income'),exp=sum(data,'expense');
-const rows=data.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id).map((x,i)=>`<tr><td>${i+1}</td><td>${dateFa(x.date)}</td><td>${x.type==='income'?'دریافت':'هزینه'}</td><td>${esc(x.desc)}</td><td>${x.type==='income'?money(x.amount):'—'}</td><td>${x.type==='expense'?money(x.amount):'—'}</td><td>${esc(x.note||'')}</td></tr>`).join('');
-  $('printArea').innerHTML=`<h1>فرم گزارش تنخواه</h1><div class="print-sub">بازه گزارش: ${esc(rangeTitle())} | تاریخ تهیه: ${dateFa(today)}</div><div class="print-summary"><div>مانده اولیه: <b>${money(openingBalance)}</b></div><div>جمع دریافتی: <b>${money(inc)}</b></div><div>جمع هزینه: <b>${money(exp)}</b></div><div>مانده پایان بازه: <b>${money(balanceAt(rangeEnd()))}</b></div></div><table><thead><tr><th>ردیف</th><th>تاریخ شمسی</th><th>نوع</th><th>شرح</th><th>دریافتی (تومان)</th><th>هزینه (تومان)</th><th>توضیحات</th></tr></thead><tbody>${rows}</tbody></table><div class="signatures"><div>تهیه‌کننده گزارش<br><br>امضا</div><div>تحویل‌گیرنده<br><br>امضا</div><div>تأیید صاحب‌کار<br><br>امضا و تاریخ</div></div><div class="print-foot">مانده حساب = مانده اولیه + دریافت‌ها − هزینه‌ها</div>`;
- return true;
+
+function jalaliPartsFromUtcDate(date) {
+  const parts = jalaliFormatter.formatToParts(date);
+  const result = {};
+  for (const part of parts) {
+    if (part.type === 'year' || part.type === 'month' || part.type === 'day') result[part.type] = Number(part.value);
+  }
+  return result;
 }
-$('printBtn').onclick=()=>{if(buildPrint())window.print();};
-setType('expense');render();
+
+function toJalaliKey(iso) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(iso || ''))) return '';
+  const [year, month, day] = iso.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return '';
+  const p = jalaliPartsFromUtcDate(date);
+  return [p.year, String(p.month).padStart(2, '0'), String(p.day).padStart(2, '0')].join('-');
+}
+
+function fromJalali(year, month, day) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return '';
+  if (year < 1200 || year > 1600 || month < 1 || month > 12 || day < 1 || day > 31) return '';
+  const base = Date.UTC(year + 621, 2, 20);
+  for (let offset = -6; offset <= 380; offset++) {
+    const date = new Date(base + offset * DAY_MS);
+    const p = jalaliPartsFromUtcDate(date);
+    if (p.year === year && p.month === month && p.day === day) {
+      return [date.getUTCFullYear(), String(date.getUTCMonth() + 1).padStart(2, '0'), String(date.getUTCDate()).padStart(2, '0')].join('-');
+    }
+  }
+  return '';
+}
+
+function parseJalaliInput(value) {
+  const raw = normalizeDigits(value).replace(/[.\-]/g, '/');
+  const match = raw.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if (!match) return '';
+  return fromJalali(Number(match[1]), Number(match[2]), Number(match[3]));
+}
+
+function utcDateFromIso(iso) {
+  const [year, month, day] = iso.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function todayJalali() {
+  const p = jalaliPartsFromUtcDate(utcDateFromIso(todayIso()));
+  return `${p.year}/${String(p.month).padStart(2, '0')}/${String(p.day).padStart(2, '0')}`;
+}
+
+function dateFa(iso) {
+  const key = toJalaliKey(iso);
+  return key ? key.replace(/-/g, '/') : '';
+}
+
+function newId() {
+  lastId = Math.max(Date.now(), lastId + 1);
+  return lastId;
+}
+
+function parseAmount(value) {
+  const normalized = normalizeDigits(value).replace(/[\s,٬،]/g, '');
+  if (!/^\d+$/.test(normalized)) return null;
+  const number = Number(normalized);
+  return Number.isSafeInteger(number) ? number : null;
+}
+
+function isValidIsoDate(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) && Boolean(toJalaliKey(value));
+}
+
+function readItems() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEY) || '[]');
+    if (!Array.isArray(raw)) {
+      storageWarning = true;
+      return [];
+    }
+    const normalized = [];
+    for (const value of raw) {
+      if (!value || typeof value !== 'object') { storageWarning = true; continue; }
+      let date = String(value.date || '');
+      if (!isValidIsoDate(date)) date = parseJalaliInput(date);
+      const amount = Number(value.amount);
+      const desc = String(value.desc || '').trim();
+      if (!date || !Number.isSafeInteger(amount) || amount < 1 || !desc) { storageWarning = true; continue; }
+      const id = Number.isSafeInteger(Number(value.id)) ? Number(value.id) : newId();
+      lastId = Math.max(lastId, id);
+      normalized.push({
+        id,
+        type: value.type === 'income' ? 'income' : 'expense',
+        date,
+        desc,
+        amount,
+        note: String(value.note || '')
+      });
+    }
+    return normalized;
+  } catch {
+    storageWarning = true;
+    return [];
+  }
+}
+
+function money(value) {
+  return new Intl.NumberFormat('fa-IR').format(Math.round(Number(value) || 0)) + ' تومان';
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
+}
+
+function sum(data, type) {
+  return data.filter(item => item.type === type).reduce((total, item) => total + item.amount, 0);
+}
+
+function saveItems(nextItems) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(nextItems));
+    items = nextItems;
+    render();
+    return true;
+  } catch {
+    alert('ذخیره اطلاعات انجام نشد. احتمالاً حافظه مرورگر پر شده یا اجازه ذخیره‌سازی وجود ندارد. اطلاعات را پاک نکنید و از صفحه خارج نشوید.');
+    return false;
+  }
+}
+
+function setType(type) {
+  formType = type;
+  $('expenseTab').classList.toggle('active', type === 'expense');
+  $('incomeTab').classList.toggle('active', type === 'income');
+  $('saveBtn').textContent = editing !== null ? 'ذخیره تغییرات' : (type === 'income' ? '＋ ثبت دریافت پول' : '＋ ثبت هزینه');
+  $('desc').placeholder = type === 'income' ? 'مثلاً دریافت تنخواه از صاحب‌کار' : 'مثلاً خرید سیمان یا کرایه حمل';
+}
+
+function resetForm() {
+  editing = null;
+  $('transactionForm').reset();
+  $('date').value = todayJalali();
+  $('formTitle').textContent = 'ثبت تراکنش جدید';
+  $('cancelEdit').classList.add('hidden');
+  setType('expense');
+}
+
+function getRange() {
+  const fromText = $('from').value.trim();
+  const toText = $('to').value.trim();
+  const fromIso = fromText ? parseJalaliInput(fromText) : '';
+  const toIso = toText ? parseJalaliInput(toText) : '';
+  if (fromText && !fromIso) return { ok: false, error: 'تاریخ شروع معتبر نیست. نمونه درست: 1405/11/01' };
+  if (toText && !toIso) return { ok: false, error: 'تاریخ پایان معتبر نیست. نمونه درست: 1405/11/30' };
+  if (fromIso && toIso && fromIso > toIso) return { ok: false, error: 'تاریخ شروع نباید بعد از تاریخ پایان باشد.' };
+  const latestItemDate = items.reduce((latest, item) => item.date > latest ? item.date : latest, todayIso());
+  const endIso = toIso || (fromIso && fromIso > latestItemDate ? fromIso : latestItemDate);
+  return { ok: true, fromIso, toIso, endIso };
+}
+
+function filtered(range) {
+  return items.filter(item => (!range.fromIso || item.date >= range.fromIso) && (!range.toIso || item.date <= range.toIso))
+    .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+}
+
+function balanceAt(date) {
+  return openingBalance + items.filter(item => item.date <= date)
+    .reduce((balance, item) => balance + (item.type === 'income' ? item.amount : -item.amount), 0);
+}
+
+function balanceBefore(date) {
+  return openingBalance + items.filter(item => item.date < date)
+    .reduce((balance, item) => balance + (item.type === 'income' ? item.amount : -item.amount), 0);
+}
+
+function rangeOpeningBalance(range) {
+  return range.fromIso ? balanceBefore(range.fromIso) : openingBalance;
+}
+
+function rangeTitle(range) {
+  const from = range.fromIso ? dateFa(range.fromIso) : 'ابتدای سوابق';
+  const to = range.toIso ? dateFa(range.toIso) : dateFa(range.endIso);
+  return `${from} تا ${to}`;
+}
+
+function renderGrouped(data) {
+  const groups = {};
+  for (const item of data) {
+    const jalali = toJalaliKey(item.date);
+    const key = $('groupMode').value === 'month' ? jalali.slice(0, 7) : item.date;
+    if (!groups[key]) groups[key] = { income: 0, expense: 0 };
+    groups[key][item.type] += item.amount;
+  }
+  const keys = Object.keys(groups).sort().reverse();
+  if (!keys.length) {
+    $('groupedReport').innerHTML = '<div class="empty">برای این بازه تراکنشی وجود ندارد.</div>';
+    return;
+  }
+  const rows = keys.map(key => {
+    const group = groups[key];
+    const label = $('groupMode').value === 'month' ? key.replace('-', '/') : dateFa(key);
+    return `<tr><td>${label}</td><td class="incomeText">${money(group.income)}</td><td class="expenseText">${money(group.expense)}</td><td>${money(group.income - group.expense)}</td></tr>`;
+  }).join('');
+  $('groupedReport').innerHTML = `<div class="table-wrap"><table><thead><tr><th>${$('groupMode').value === 'month' ? 'ماه' : 'روز'}</th><th>دریافتی</th><th>هزینه</th><th>خالص</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function render() {
+  const allIncome = sum(items, 'income');
+  const allExpense = sum(items, 'expense');
+  $('totalIncome').textContent = money(allIncome);
+  $('totalExpense').textContent = money(allExpense);
+  $('currentBalance').textContent = money(openingBalance + allIncome - allExpense);
+
+  const range = getRange();
+  if (!range.ok) {
+    for (const id of ['rangeIncome', 'rangeExpense', 'rangeNet', 'rangeBalance']) $(id).textContent = '—';
+    $('groupedReport').innerHTML = `<div class="empty" role="alert">${escapeHtml(range.error)}</div>`;
+    $('list').innerHTML = `<div class="empty">برای نمایش سوابق، تاریخ گزارش را اصلاح کنید.</div>`;
+    return;
+  }
+
+  const data = filtered(range);
+  const income = sum(data, 'income');
+  const expense = sum(data, 'expense');
+  $('rangeIncome').textContent = money(income);
+  $('rangeExpense').textContent = money(expense);
+  $('rangeNet').textContent = money(income - expense);
+  $('rangeBalance').textContent = money(balanceAt(range.endIso));
+  renderGrouped(data);
+
+  $('list').innerHTML = data.length ? data.map(item => `
+    <div class="expense">
+      <div class="exp-head">
+        <div><b>${escapeHtml(item.desc)}</b><div class="muted">${dateFa(item.date)} · <span class="${item.type === 'income' ? 'incomeText' : 'expenseText'}">${item.type === 'income' ? 'دریافت' : 'هزینه'}</span></div></div>
+        <div class="amount ${item.type === 'income' ? 'incomeText' : 'expenseText'}">${item.type === 'income' ? '+' : '−'} ${money(item.amount)}</div>
+      </div>
+      ${item.note ? `<div class="muted" style="margin-top:6px">${escapeHtml(item.note).replace(/\n/g, '<br>')}</div>` : ''}
+      <div class="actions"><button class="secondary" type="button" data-action="edit" data-id="${item.id}">ویرایش</button><button class="danger" type="button" data-action="delete" data-id="${item.id}">حذف</button></div>
+    </div>`).join('') : '<div class="empty">هنوز تراکنشی در این بازه ثبت نشده است.</div>';
+}
+
+function reportDataOrAlert() {
+  const range = getRange();
+  if (!range.ok) {
+    alert(range.error);
+    return null;
+  }
+  const data = filtered(range).slice().sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
+  if (!data.length) {
+    alert('برای این بازه تراکنشی ثبت نشده است.');
+    return null;
+  }
+  return { range, data };
+}
+
+function buildReportText(range, data) {
+  const income = sum(data, 'income');
+  const expense = sum(data, 'expense');
+  const opening = rangeOpeningBalance(range);
+  const closing = balanceAt(range.endIso);
+  const separator = '━━━━━━━━━━━━━━━━━━━━';
+  const lines = [
+    'گزارش مالی تنخواه',
+    separator,
+    `بازه گزارش: ${rangeTitle(range)}`,
+    `تاریخ تهیه گزارش: ${dateFa(todayIso())}`,
+    separator,
+    'خلاصه حساب',
+    `مانده اولیه ثبت‌شده: ${money(openingBalance)}`,
+    `مانده ابتدای بازه: ${money(opening)}`,
+    `جمع دریافتی‌ها: ${money(income)}`,
+    `جمع هزینه‌ها: ${money(expense)}`,
+    `خالص بازه: ${money(income - expense)}`,
+    `مانده پایان بازه: ${money(closing)}`,
+    separator,
+    'ریز تراکنش‌ها'
+  ];
+  data.forEach((item, index) => {
+    lines.push(
+      `${index + 1}) ${dateFa(item.date)} | ${item.type === 'income' ? 'دریافت وجه' : 'پرداخت هزینه'}`,
+      `شرح: ${item.desc}`,
+      `مبلغ: ${money(item.amount)}`
+    );
+    if (item.note) lines.push(`توضیحات: ${item.note}`);
+    lines.push(separator);
+  });
+  lines.push('روش محاسبه: مانده ابتدای بازه + جمع دریافتی‌ها − جمع هزینه‌ها');
+  lines.push('این گزارش بر اساس اطلاعات ثبت‌شده در دفتر تنخواه تهیه شده است.');
+  return lines.join('\n');
+}
+
+async function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return true;
+  }
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly', '');
+  area.style.position = 'fixed';
+  area.style.opacity = '0';
+  document.body.appendChild(area);
+  area.select();
+  const copied = document.execCommand && document.execCommand('copy');
+  area.remove();
+  if (!copied) throw new Error('Copy unavailable');
+  return true;
+}
+
+function xmlEscape(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;'
+  })[char]);
+}
+
+function columnName(index) {
+  let name = '';
+  let number = index + 1;
+  while (number > 0) {
+    const remainder = (number - 1) % 26;
+    name = String.fromCharCode(65 + remainder) + name;
+    number = Math.floor((number - 1) / 26);
+  }
+  return name;
+}
+
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) {
+    crc ^= bytes[i];
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function concatenateBytes(parts) {
+  const total = parts.reduce((length, part) => length + part.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    result.set(part, offset);
+    offset += part.length;
+  }
+  return result;
+}
+
+function createStoredZip(files) {
+  const encoder = new TextEncoder();
+  const localParts = [];
+  const centralParts = [];
+  let localOffset = 0;
+  const dosDate = (1 << 5) | 1; // 1980-01-01, the minimum ZIP date.
+
+  for (const file of files) {
+    const name = encoder.encode(file.name);
+    const data = encoder.encode(file.content);
+    const checksum = crc32(data);
+    const localHeader = new Uint8Array(30 + name.length);
+    const localView = new DataView(localHeader.buffer);
+    localView.setUint32(0, 0x04034b50, true);
+    localView.setUint16(4, 20, true);
+    localView.setUint16(6, 0x0800, true); // UTF-8 file names.
+    localView.setUint16(8, 0, true); // Stored, no compression.
+    localView.setUint16(10, 0, true);
+    localView.setUint16(12, dosDate, true);
+    localView.setUint32(14, checksum, true);
+    localView.setUint32(18, data.length, true);
+    localView.setUint32(22, data.length, true);
+    localView.setUint16(26, name.length, true);
+    localView.setUint16(28, 0, true);
+    localHeader.set(name, 30);
+    localParts.push(localHeader, data);
+
+    const centralHeader = new Uint8Array(46 + name.length);
+    const centralView = new DataView(centralHeader.buffer);
+    centralView.setUint32(0, 0x02014b50, true);
+    centralView.setUint16(4, 20, true);
+    centralView.setUint16(6, 20, true);
+    centralView.setUint16(8, 0x0800, true);
+    centralView.setUint16(10, 0, true);
+    centralView.setUint16(12, 0, true);
+    centralView.setUint16(14, dosDate, true);
+    centralView.setUint32(16, checksum, true);
+    centralView.setUint32(20, data.length, true);
+    centralView.setUint32(24, data.length, true);
+    centralView.setUint16(28, name.length, true);
+    centralView.setUint16(30, 0, true);
+    centralView.setUint16(32, 0, true);
+    centralView.setUint16(34, 0, true);
+    centralView.setUint16(36, 0, true);
+    centralView.setUint32(38, 0, true);
+    centralView.setUint32(42, localOffset, true);
+    centralHeader.set(name, 46);
+    centralParts.push(centralHeader);
+    localOffset += localHeader.length + data.length;
+  }
+
+  const centralDirectory = concatenateBytes(centralParts);
+  const endRecord = new Uint8Array(22);
+  const endView = new DataView(endRecord.buffer);
+  endView.setUint32(0, 0x06054b50, true);
+  endView.setUint16(4, 0, true);
+  endView.setUint16(6, 0, true);
+  endView.setUint16(8, files.length, true);
+  endView.setUint16(10, files.length, true);
+  endView.setUint32(12, centralDirectory.length, true);
+  endView.setUint32(16, localOffset, true);
+  endView.setUint16(20, 0, true);
+
+  return concatenateBytes([...localParts, centralDirectory, endRecord]);
+}
+
+function createExcelWorkbook(rows) {
+  const maxColumns = Math.max(7, ...rows.map(row => row.length));
+  const lastColumn = columnName(maxColumns - 1);
+  const sheetRows = rows.map((row, rowIndex) => {
+    const rowNumber = rowIndex + 1;
+    const cells = row.map((cell, columnIndex) => {
+      if (cell === null || cell === undefined || cell.v === '') return '';
+      const value = typeof cell === 'object' && Object.prototype.hasOwnProperty.call(cell, 'v') ? cell.v : cell;
+      const style = typeof cell === 'object' && cell.s ? ` s="${cell.s}"` : '';
+      const reference = `${columnName(columnIndex)}${rowNumber}`;
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return `<c r="${reference}"${style} t="n"><v>${value}</v></c>`;
+      }
+      return `<c r="${reference}"${style} t="inlineStr"><is><t xml:space="preserve">${xmlEscape(value)}</t></is></c>`;
+    }).join('');
+    const height = rowIndex === 0 ? ' ht="30" customHeight="1"' : '';
+    return `<row r="${rowNumber}"${height}>${cells}</row>`;
+  }).join('');
+
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>`;
+
+  const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+
+  const workbook = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheets><sheet name="گزارش تنخواه" sheetId="1" r:id="rId1"/></sheets>
+</workbook>`;
+
+  const workbookRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0"/></numFmts>
+<fonts count="3">
+<font><sz val="11"/><name val="Calibri"/></font>
+<font><b/><sz val="16"/><name val="Calibri"/></font>
+<font><b/><sz val="11"/><name val="Calibri"/></font>
+</fonts>
+<fills count="3">
+<fill><patternFill patternType="none"/></fill>
+<fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFE5EEE6"/><bgColor indexed="64"/></patternFill></fill>
+</fills>
+<borders count="2">
+<border><left/><right/><top/><bottom/><diagonal/></border>
+<border><left style="thin"><color rgb="FF9AA99D"/></left><right style="thin"><color rgb="FF9AA99D"/></right><top style="thin"><color rgb="FF9AA99D"/></top><bottom style="thin"><color rgb="FF9AA99D"/></bottom><diagonal/></border>
+</borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="6">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+<xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+
+  const worksheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<dimension ref="A1:${lastColumn}${rows.length}"/>
+<sheetViews><sheetView showGridLines="0" rightToLeft="1" workbookViewId="0"/></sheetViews>
+<sheetFormatPr defaultRowHeight="20"/>
+<cols>
+<col min="1" max="1" width="9" customWidth="1"/>
+<col min="2" max="3" width="16" customWidth="1"/>
+<col min="4" max="4" width="34" customWidth="1"/>
+<col min="5" max="6" width="19" customWidth="1"/>
+<col min="7" max="7" width="36" customWidth="1"/>
+</cols>
+<sheetData>${sheetRows}</sheetData>
+<mergeCells count="1"><mergeCell ref="A1:${lastColumn}1"/></mergeCells>
+<pageMargins left="0.25" right="0.25" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>
+</worksheet>`;
+
+  const bytes = createStoredZip([
+    { name: '[Content_Types].xml', content: contentTypes },
+    { name: '_rels/.rels', content: rootRels },
+    { name: 'xl/workbook.xml', content: workbook },
+    { name: 'xl/_rels/workbook.xml.rels', content: workbookRels },
+    { name: 'xl/styles.xml', content: styles },
+    { name: 'xl/worksheets/sheet1.xml', content: worksheet }
+  ]);
+  return new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+function downloadBlob(filename, blob) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+function exportExcel() {
+  const result = reportDataOrAlert();
+  if (!result) return;
+  const { range, data } = result;
+  const income = sum(data, 'income');
+  const expense = sum(data, 'expense');
+  const opening = rangeOpeningBalance(range);
+  const closing = balanceAt(range.endIso);
+  const rows = [
+    [{ v: 'گزارش تنخواه', s: 1 }],
+    [{ v: 'بازه گزارش', s: 2 }, { v: rangeTitle(range) }],
+    [{ v: 'تاریخ تهیه گزارش', s: 2 }, { v: dateFa(todayIso()) }],
+    [{ v: 'مانده اولیه ثبت‌شده (تومان)', s: 2 }, { v: openingBalance, s: 3 }],
+    [{ v: 'مانده ابتدای بازه (تومان)', s: 2 }, { v: opening, s: 3 }],
+    [{ v: 'جمع دریافتی‌ها (تومان)', s: 2 }, { v: income, s: 3 }],
+    [{ v: 'جمع هزینه‌ها (تومان)', s: 2 }, { v: expense, s: 3 }],
+    [{ v: 'خالص بازه (تومان)', s: 2 }, { v: income - expense, s: 3 }],
+    [{ v: 'مانده پایان بازه (تومان)', s: 2 }, { v: closing, s: 3 }],
+    [],
+    ['ردیف', 'تاریخ شمسی', 'نوع تراکنش', 'شرح', 'دریافتی (تومان)', 'هزینه (تومان)', 'توضیحات'].map(v => ({ v, s: 4 })),
+    ...data.map((item, index) => [
+      { v: index + 1, s: 5 },
+      { v: dateFa(item.date), s: 5 },
+      { v: item.type === 'income' ? 'دریافت' : 'هزینه', s: 5 },
+      { v: item.desc, s: 5 },
+      item.type === 'income' ? { v: item.amount, s: 3 } : null,
+      item.type === 'expense' ? { v: item.amount, s: 3 } : null,
+      { v: item.note || '', s: 5 }
+    ]),
+    [],
+    [{ v: 'تهیه‌کننده گزارش و امضا', s: 5 }, null, null, { v: 'تحویل‌گیرنده و امضا', s: 5 }, null, { v: 'تأیید صاحب‌کار', s: 5 }]
+  ];
+  const blob = createExcelWorkbook(rows);
+  downloadBlob('gozaresh-tankhah.xlsx', blob);
+}
+
+function buildPrint() {
+  const result = reportDataOrAlert();
+  if (!result) return false;
+  const { range, data } = result;
+  const income = sum(data, 'income');
+  const expense = sum(data, 'expense');
+  const opening = rangeOpeningBalance(range);
+  const closing = balanceAt(range.endIso);
+  const rows = data.map((item, index) => `<tr>
+    <td>${index + 1}</td><td>${dateFa(item.date)}</td><td>${item.type === 'income' ? 'دریافت' : 'هزینه'}</td>
+    <td>${escapeHtml(item.desc)}</td><td>${item.type === 'income' ? money(item.amount) : '—'}</td>
+    <td>${item.type === 'expense' ? money(item.amount) : '—'}</td><td>${escapeHtml(item.note || '').replace(/\n/g, '<br>')}</td>
+  </tr>`).join('');
+
+  $('printArea').innerHTML = `
+    <h1>فرم گزارش تنخواه</h1>
+    <div class="print-sub">بازه گزارش: ${escapeHtml(rangeTitle(range))} | تاریخ تهیه: ${dateFa(todayIso())}</div>
+    <div class="print-summary">
+      <div>مانده اولیه ثبت‌شده: <b>${money(openingBalance)}</b></div>
+      <div>مانده ابتدای بازه: <b>${money(opening)}</b></div>
+      <div>جمع دریافتی: <b>${money(income)}</b></div>
+      <div>جمع هزینه: <b>${money(expense)}</b></div>
+      <div>مانده پایان بازه: <b>${money(closing)}</b></div>
+    </div>
+    <table><thead><tr><th>ردیف</th><th>تاریخ شمسی</th><th>نوع</th><th>شرح</th><th>دریافتی (تومان)</th><th>هزینه (تومان)</th><th>توضیحات</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="signatures"><div>تهیه‌کننده گزارش<br><br>امضا</div><div>تحویل‌گیرنده<br><br>امضا</div><div>تأیید صاحب‌کار<br><br>امضا و تاریخ</div></div>
+    <div class="print-foot">مانده پایان بازه = مانده ابتدای بازه + دریافتی‌های بازه − هزینه‌های بازه</div>`;
+  return true;
+}
+
+// Load saved data only after all conversion and validation helpers are ready.
+items = readItems();
+try {
+  const storedOpening = normalizeDigits(localStorage.getItem(OPENING_KEY) || '0').replace(/[\s,٬،]/g, '');
+  const parsedOpening = Number(storedOpening);
+  openingBalance = Number.isSafeInteger(parsedOpening) && parsedOpening >= 0 ? parsedOpening : 0;
+} catch {
+  openingBalance = 0;
+  storageWarning = true;
+}
+
+$('openingBalance').value = String(openingBalance);
+$('date').value = todayJalali();
+$('from').value = '';
+$('to').value = '';
+setType('expense');
+
+$('expenseTab').addEventListener('click', () => setType('expense'));
+$('incomeTab').addEventListener('click', () => setType('income'));
+
+$('transactionForm').addEventListener('submit', event => {
+  event.preventDefault();
+  const dateText = $('date').value.trim();
+  const date = parseJalaliInput(dateText);
+  const desc = $('desc').value.trim();
+  const amount = parseAmount($('amount').value);
+  if (!date) {
+    alert('تاریخ معتبر نیست. آن را به شکل 1405/11/30 وارد کنید.');
+    $('date').focus();
+    return;
+  }
+  if (!desc) {
+    alert('لطفاً شرح تراکنش را وارد کنید.');
+    $('desc').focus();
+    return;
+  }
+  if (amount === null || amount < 1) {
+    alert('مبلغ باید یک عدد صحیح و بزرگ‌تر از صفر باشد.');
+    $('amount').focus();
+    return;
+  }
+  const transaction = {
+    id: editing !== null ? editing : newId(),
+    type: formType,
+    date,
+    desc,
+    amount,
+    note: $('note').value.trim()
+  };
+  const nextItems = editing !== null
+    ? items.map(item => item.id === editing ? transaction : item)
+    : [...items, transaction];
+  if (saveItems(nextItems)) resetForm();
+});
+
+$('cancelEdit').addEventListener('click', resetForm);
+$('list').addEventListener('click', event => {
+  const button = event.target.closest('button[data-action]');
+  if (!button) return;
+  const id = Number(button.dataset.id);
+  const action = button.dataset.action;
+  const item = items.find(entry => entry.id === id);
+  if (!item) return;
+  if (action === 'edit') {
+    editing = id;
+    setType(item.type);
+    $('date').value = dateFa(item.date);
+    $('desc').value = item.desc;
+    $('amount').value = String(item.amount);
+    $('note').value = item.note || '';
+    $('formTitle').textContent = 'ویرایش تراکنش';
+    $('saveBtn').textContent = 'ذخیره تغییرات';
+    $('cancelEdit').classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else if (action === 'delete' && confirm('این تراکنش حذف شود؟')) {
+    const nextItems = items.filter(entry => entry.id !== id);
+    if (saveItems(nextItems) && editing === id) resetForm();
+  }
+});
+
+$('saveOpening').addEventListener('click', () => {
+  const raw = $('openingBalance').value.trim();
+  const amount = raw === '' ? 0 : parseAmount(raw);
+  if (amount === null || amount < 0) {
+    alert('مانده اولیه باید یک عدد صحیح و صفر یا بیشتر باشد.');
+    $('openingBalance').focus();
+    return;
+  }
+  try {
+    localStorage.setItem(OPENING_KEY, String(amount));
+    openingBalance = amount;
+    render();
+    alert('مانده اولیه ذخیره شد.');
+  } catch {
+    alert('ذخیره مانده اولیه انجام نشد. اجازه ذخیره‌سازی مرورگر را بررسی کنید.');
+  }
+});
+
+$('groupMode').addEventListener('change', render);
+$('from').addEventListener('input', render);
+$('to').addEventListener('input', render);
+$('todayBtn').addEventListener('click', () => {
+  const today = todayJalali();
+  $('from').value = today;
+  $('to').value = today;
+  render();
+});
+$('monthBtn').addEventListener('click', () => {
+  const p = jalaliPartsFromUtcDate(utcDateFromIso(todayIso()));
+  $('from').value = `${p.year}/${String(p.month).padStart(2, '0')}/01`;
+  $('to').value = todayJalali();
+  render();
+});
+$('allBtn').addEventListener('click', () => {
+  $('from').value = '';
+  $('to').value = '';
+  render();
+});
+
+$('shareBtn').addEventListener('click', async () => {
+  const result = reportDataOrAlert();
+  if (!result) return;
+  const text = buildReportText(result.range, result.data);
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: 'گزارش تنخواه', text });
+    } else {
+      await copyText(text);
+      alert('متن گزارش کپی شد؛ آن را در واتساپ یا پیام‌رسان ارسال کنید.');
+    }
+  } catch (error) {
+    if (error && error.name === 'AbortError') return;
+    try {
+      await copyText(text);
+      alert('متن گزارش کپی شد؛ آن را در پیام‌رسان ارسال کنید.');
+    } catch {
+      alert('ارسال یا کپی گزارش در این مرورگر ممکن نشد.');
+    }
+  }
+});
+
+$('excelBtn').addEventListener('click', exportExcel);
+$('printBtn').addEventListener('click', () => {
+  if (buildPrint()) window.print();
+});
+
+render();
+if (storageWarning) {
+  alert('هشدار: بخشی از اطلاعات ذخیره‌شده قابل خواندن نبود یا مرورگر اجازه دسترسی به حافظه را نداد. قبل از ادامه، اطلاعات را بررسی کنید.');
+}
+
 </script>
 </body>
 </html>
