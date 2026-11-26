@@ -62,21 +62,6 @@ footer{text-align:center;color:var(--muted);font-size:11px;margin:20px 0;line-he
  #printArea .print-foot{font-size:9px;text-align:center;margin-top:14px}
 }
 </style>
-
-<link rel="manifest" href="./manifest.webmanifest">
-<meta name="theme-color" content="#14532d">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="دفتر تنخواه">
-<link rel="apple-touch-icon" href="./icons/icon-192.png">
-
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  });
-}
-</script>
 </head>
 <body>
 <header><h1>دفتر تنخواه من</h1><div class="sub">ثبت دریافت و هزینه، محاسبه مانده و گزارش قابل ارسال برای صاحب‌کار</div></header>
@@ -248,22 +233,7 @@ function rangeTitle(){return ($('from').value?dateFa($('from').value):'ابتد�
 function exportExcel(){
  const data=filtered();if(!data.length){alert('برای این بازه تراکنشی ثبت نشده است.');return;}
  const inc=sum(data,'income'),exp=sum(data,'expense'),endBal=balanceAt(rangeEnd());
- const htmlDoc=`<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><style>body{font-family:Tahoma,Arial,sans-serif;direction:rtl}table{border-collapse:collapse;width:100%}th,td{border:1px solid #777;padding:7px;text-align:right}th{background:#e5eee6}.title{text-align:center;font-size:18px;font-weight:bold}.sum td{background:#f4f7f4;font-weight:bold}.sign td{height:55px;text-align:center;vertical-align:bottom}</style>
-<link rel="manifest" href="./manifest.webmanifest">
-<meta name="theme-color" content="#14532d">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="دفتر تنخواه">
-<link rel="apple-touch-icon" href="./icons/icon-192.png">
-
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  });
-}
-</script>
-</head><body><table><tr><td colspan="8" class="title">فرم گزارش تنخواه</td></tr><tr><td colspan="8">بازه گزارش: ${esc(rangeTitle())}</td></tr><tr class="sum"><td colspan="2">مانده اولیه</td><td colspan="2">${money(openingBalance)}</td><td>دریافتی</td><td>${money(inc)}</td><td>هزینه</td><td>${money(exp)}</td></tr><tr class="sum"><td colspan="3">خالص بازه</td><td>${money(inc-exp)}</td><td colspan="2">مانده پایان بازه</td><td colspan="2">${money(endBal)}</td></tr><tr><th>ردیف</th><th>تاریخ</th><th>نوع</th><th>شرح</th><th>دسته‌بندی</th><th>دریافتی (تومان)</th><th>هزینه (تومان)</th><th>توضیحات</th></tr>${reportRowsHtml(data)}<tr class="sign"><td colspan="3">تهیه‌کننده گزارش و امضا</td><td colspan="2">تحویل‌گیرنده و امضا</td><td colspan="3">تأیید صاحب‌کار</td></tr></table><p>مانده حساب = مانده اولیه + دریافت‌ها − هزینه‌ها</p></body></html>`;
+ const htmlDoc=`<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><style>body{font-family:Tahoma,Arial,sans-serif;direction:rtl}table{border-collapse:collapse;width:100%}th,td{border:1px solid #777;padding:7px;text-align:right}th{background:#e5eee6}.title{text-align:center;font-size:18px;font-weight:bold}.sum td{background:#f4f7f4;font-weight:bold}.sign td{height:55px;text-align:center;vertical-align:bottom}</style></head><body><table><tr><td colspan="8" class="title">فرم گزارش تنخواه</td></tr><tr><td colspan="8">بازه گزارش: ${esc(rangeTitle())}</td></tr><tr class="sum"><td colspan="2">مانده اولیه</td><td colspan="2">${money(openingBalance)}</td><td>دریافتی</td><td>${money(inc)}</td><td>هزینه</td><td>${money(exp)}</td></tr><tr class="sum"><td colspan="3">خالص بازه</td><td>${money(inc-exp)}</td><td colspan="2">مانده پایان بازه</td><td colspan="2">${money(endBal)}</td></tr><tr><th>ردیف</th><th>تاریخ</th><th>نوع</th><th>شرح</th><th>دسته‌بندی</th><th>دریافتی (تومان)</th><th>هزینه (تومان)</th><th>توضیحات</th></tr>${reportRowsHtml(data)}<tr class="sign"><td colspan="3">تهیه‌کننده گزارش و امضا</td><td colspan="2">تحویل‌گیرنده و امضا</td><td colspan="3">تأیید صاحب‌کار</td></tr></table><p>مانده حساب = مانده اولیه + دریافت‌ها − هزینه‌ها</p><\/body><\/html>`;
  const blob=new Blob(['\uFEFF',htmlDoc],{type:'application/vnd.ms-excel;charset=utf-8'});
  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='gozaresh-tankhah.xls';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
