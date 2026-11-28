@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14532d">
+<title>گزارش تنخواه - مشاهده صاحب‌کار</title>
+<style>
+:root{--green:#166534;--green2:#14532d;--bg:#f3f6f3;--card:#fff;--text:#17251b;--muted:#64736a;--line:#e2e9e3;--red:#b42318;--blue:#175cd3}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Vazirmatn","Tahoma",sans-serif}
+header{background:linear-gradient(135deg,#14532d,#15803d);color:white;padding:24px 18px 28px;border-radius:0 0 24px 24px}
+h1{font-size:23px;margin:0 0 5px}.sub{opacity:.9;font-size:13px}
+main{max-width:760px;margin:auto;padding:16px 14px 36px}
+.summary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:-10px}
+.stat,.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px;box-shadow:0 3px 12px #15351b08}
+.stat small,.muted{color:var(--muted);font-size:12px}.stat strong{display:block;font-size:19px;margin-top:7px;overflow-wrap:anywhere}
+.stat.balance{grid-column:1/-1;border-color:#b8d9bf}.stat.balance strong{font-size:25px;color:var(--green)}
+.panel{margin-top:14px}.panel h2{font-size:17px;margin:0 0 12px}
+button{border:0;border-radius:12px;padding:12px 14px;font:inherit;font-weight:700;cursor:pointer;background:#e8f2ea;color:#14532d;width:100%}
+.status{background:#fff8e6;border:1px solid #f2dfad;border-radius:12px;padding:12px;font-size:13px;line-height:1.8;margin-top:14px}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin-top:10px}
+table{width:100%;border-collapse:collapse;min-width:540px;font-size:12px;background:white}
+th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:normal;overflow-wrap:anywhere}
+th{background:#eef4ef;font-weight:700}tr:last-child td{border-bottom:0}
+.incomeText{color:#175cd3}.expenseText{color:#b42318}.empty{text-align:center;color:var(--muted);padding:22px 4px;font-size:14px}
+footer{text-align:center;color:var(--muted);font-size:11px;margin:20px 0;line-height:1.8}
+@media(min-width:650px){main{padding-left:22px;padding-right:22px}.summary{grid-template-columns:1fr 1fr 1fr}.stat.balance{grid-column:auto}.stat strong{font-size:18px}}
+</style>
+</head>
+<body>
+<header><h1>گزارش دفتر تنخواه</h1><div class="sub">صفحه مشاهده صاحب‌کار · اطلاعات به‌روز از فضای ابری</div></header>
+<main>
+<section class="summary">
+  <div class="stat"><small>مجموع دریافت‌ها</small><strong id="totalIncome">—</strong></div>
+  <div class="stat"><small>مجموع هزینه‌ها</small><strong id="totalExpense">—</strong></div>
+  <div class="stat balance"><small>مانده فعلی حساب</small><strong id="currentBalance">—</strong></div>
+</section>
+<section class="panel">
+  <h2>خلاصه حساب</h2>
+  <div class="muted" id="openingBalance">مانده اولیه: —</div>
+  <div class="muted" id="lastUpdated" style="margin-top:7px">آخرین به‌روزرسانی: —</div>
+  <button id="refreshBtn" style="margin-top:12px">به‌روزرسانی اطلاعات</button>
+</section>
+<section class="panel">
+  <h2>فهرست تراکنش‌ها</h2>
+  <div class="muted">این صفحه فقط برای مشاهده است؛ امکان ثبت، ویرایش یا حذف اطلاعات در آن وجود ندارد.</div>
+  <div id="list"><div class="empty">در حال دریافت اطلاعات...</div></div>
+</section>
+<div class="status" id="status">در حال اتصال امن به دفتر تنخواه...</div>
+<footer>این گزارش از اطلاعات ثبت‌شده در دفتر تنخواه تهیه شده است.</footer>
+</main>
+<script>
+'use strict';
+const API_URL = 'https://spxligorgowqeajvlonl.supabase.co/functions/v1/tankhah-api';
+const $ = id => document.getElementById(id);
+const faDate = new Intl.DateTimeFormat('fa-IR-u-ca-persian-nu-latn', {
+  timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit'
+});
+function money(value) {
+  return new Intl.NumberFormat('fa-IR').format(Math.round(Number(value) || 0)) + ' تومان';
+}
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
+}
+function displayDate(value) {
+  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return '—';
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  const p = {};
+  for (const part of faDate.formatToParts(date)) {
+    if (['year','month','day'].includes(part.type)) p[part.type] = part.value;
+  }
+  return `${p.year}/${p.month}/${p.day}`;
+}
+async function loadReport() {
+  const token = decodeURIComponent(location.hash.slice(1).trim());
+  if (token.length < 32) {
+    $('status').textContent = 'لینک مشاهده کامل نیست. صاحب لینک باید نشانی اختصاصی را دوباره ارسال کند.';
+    $('list').innerHTML = '<div class="empty">رمز مشاهده در نشانی صفحه وجود ندارد.</div>';
+    return;
+  }
+  $('refreshBtn').disabled = true;
+  $('status').textContent = 'در حال دریافت آخرین اطلاعات...';
+  try {
+    const response = await fetch(API_URL, {
+      method: 'GET',
+      headers: { 'x-owner-token': token },
+      cache: 'no-store'
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `خطای سرور (${response.status})`);
+
+    const rows = Array.isArray(result.transactions) ? result.transactions : [];
+    const opening = Math.max(0, Number(result.opening_balance) || 0);
+    const income = rows.filter(row => row.type === 'income').reduce((s, row) => s + Number(row.amount || 0), 0);
+    const expense = rows.filter(row => row.type === 'expense').reduce((s, row) => s + Number(row.amount || 0), 0);
+    $('totalIncome').textContent = money(income);
+    $('totalExpense').textContent = money(expense);
+    $('currentBalance').textContent = money(opening + income - expense);
+    $('openingBalance').textContent = `مانده اولیه: ${money(opening)}`;
+
+    const ordered = rows.slice().sort((a, b) =>
+      String(b.transaction_date).localeCompare(String(a.transaction_date)) || Number(b.id) - Number(a.id)
+    );
+    $('list').innerHTML = ordered.length ? `<div class="table-wrap"><table><thead><tr><th>تاریخ</th><th>نوع</th><th>شرح</th><th>مبلغ</th><th>توضیحات</th></tr></thead><tbody>${ordered.map(row => {
+      const isIncome = row.type === 'income';
+      return `<tr><td>${displayDate(row.transaction_date)}</td><td class="${isIncome ? 'incomeText' : 'expenseText'}">${isIncome ? 'دریافت' : 'هزینه'}</td><td>${escapeHtml(row.description)}</td><td class="${isIncome ? 'incomeText' : 'expenseText'}">${money(row.amount)}</td><td>${escapeHtml(row.notes || '—')}</td></tr>`;
+    }).join('')}</tbody></table></div>` : '<div class="empty">هنوز تراکنشی ثبت نشده است.</div>';
+
+    $('lastUpdated').textContent = `آخرین به‌روزرسانی: ${new Intl.DateTimeFormat('fa-IR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date())}`;
+    $('status').textContent = 'اطلاعات با موفقیت دریافت شد. برای دیدن تغییرات جدید، دکمه به‌روزرسانی را بزنید.';
+  } catch (error) {
+    $('status').textContent = `دریافت اطلاعات ناموفق بود: ${error.message || 'خطای نامشخص'}`;
+  } finally {
+    $('refreshBtn').disabled = false;
+  }
+}
+$('refreshBtn').addEventListener('click', loadReport);
+loadReport();
+</script>
+</body>
+</html>
