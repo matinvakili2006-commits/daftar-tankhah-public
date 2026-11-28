@@ -86,7 +86,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;margin:20px 0;line-he
   <label for="desc">شرح</label><input id="desc" maxlength="120" placeholder="مثلاً خرید سیمان یا دریافت تنخواه" required>
   <label for="amount">مبلغ (تومان)</label><input id="amount" type="text" inputmode="numeric" autocomplete="off" placeholder="مثلاً ۲۵۰۰۰۰۰" required>
   <label for="note">توضیحات (اختیاری)</label><textarea id="note" maxlength="300" placeholder="نام فروشنده، بابت چه کاری یا توضیح اضافه"></textarea>
-  <button class="primary" type="submit" id="saveBtn">＋ ثبت هزینه</button>
+  <button class="primary" type="submit" id="saveBtn" disabled>＋ ثبت هزینه</button>
   <button class="secondary hidden" type="button" id="cancelEdit" style="width:100%;margin-top:8px">لغو ویرایش</button>
  </form>
 </section>
@@ -96,7 +96,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;margin:20px 0;line-he
  <div class="muted">اگر قبل از شروع ثبت در این برنامه پولی در اختیار دارید، مبلغ آن را وارد کنید. در غیر این صورت صفر بماند.</div>
  <label for="openingBalance">موجودی اولیه (تومان)</label>
  <input id="openingBalance" type="text" inputmode="numeric" autocomplete="off" placeholder="۰">
- <button class="secondary" id="saveOpening" style="width:100%;margin-top:10px">ذخیره مانده اولیه</button>
+ <button class="secondary" id="saveOpening" style="width:100%;margin-top:10px" disabled>ذخیره مانده اولیه</button>
 </section>
 
 <section class="panel">
@@ -132,7 +132,7 @@ footer{text-align:center;color:var(--muted);font-size:11px;margin:20px 0;line-he
  <div class="muted">برای ویرایش یا حذف هر ردیف از دکمه‌های همان ردیف استفاده کنید.</div>
  <div id="list"></div>
 </section>
-<footer>اطلاعات این نسخه فقط روی همین گوشی و در حافظه مرورگر ذخیره می‌شود. برای نگهداری مطمئن، مرتب خروجی اکسل را ذخیره کنید و گزارش را برای صاحب‌کار بفرستید.</footer>
+<footer>اطلاعات دفتر تنخواه در فضای ابری ذخیره می‌شود و پس از اتصال، در گوشی‌های دیگر نیز به‌روز خواهد بود.</footer>
 </main>
 <section id="printArea"></section>
 <script>
@@ -141,6 +141,9 @@ footer{text-align:center;color:var(--muted);font-size:11px;margin:20px 0;line-he
 const $ = id => document.getElementById(id);
 const KEY = 'daftar-tankhah-v1';
 const OPENING_KEY = 'daftar-tankhah-opening';
+const WRITER_TOKEN_KEY = 'daftar-tankhah-writer-token-v1';
+const CLOUD_SYNC_KEY = 'daftar-tankhah-cloud-migrated-v1';
+const API_URL = 'https://spxligorgowqeajvlonl.supabase.co/functions/v1/tankhah-api';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const jalaliFormatter = new Intl.DateTimeFormat('en-US-u-ca-persian-nu-latn', {
   timeZone: 'UTC', year: 'numeric', month: 'numeric', day: 'numeric'
@@ -151,6 +154,8 @@ let editing = null;
 let formType = 'expense';
 let openingBalance = 0;
 let storageWarning = false;
+let cloudReady = false;
+let cloudBusy = false;
 
 function normalizeDigits(value) {
   return String(value ?? '')
@@ -284,15 +289,189 @@ function sum(data, type) {
   return data.filter(item => item.type === type).reduce((total, item) => total + item.amount, 0);
 }
 
-function saveItems(nextItems) {
+function transactionToCloud(item) {
+  return {
+    id: item.id,
+    type: item.type,
+    amount: item.amount,
+    description: item.desc,
+    transaction_date: item.date,
+    notes: item.note || ''
+  };
+}
+
+function transactionFromCloud(row) {
+  const id = Number(row.id);
+  const amount = Number(row.amount);
+  const date = String(row.transaction_date || '');
+  const desc = String(row.description || '').trim();
+  if (!Number.isSafeInteger(id) || !Number.isSafeInteger(amount) || amount < 1 ||
+      !isValidIsoDate(date) || !desc) return null;
+  return {
+    id,
+    type: row.type === 'income' ? 'income' : 'expense',
+    date,
+    desc,
+    amount,
+    note: String(row.notes || '')
+  };
+}
+
+function getWriterToken() {
+  let token = '';
+  try { token = localStorage.getItem(WRITER_TOKEN_KEY) || ''; } catch {}
+  if (token.length >= 32) return token;
+
+  token = prompt('برای اتصال دفتر تنخواه، رمز ثبت اطلاعات (WRITER_ACCESS_TOKEN) را وارد کنید. این رمز فقط در همین گوشی ذخیره می‌شود:') || '';
+  token = token.trim();
+  if (token.length < 32) return '';
+  try { localStorage.setItem(WRITER_TOKEN_KEY, token); } catch {}
+  return token;
+}
+
+async function cloudRequest(method, token, body = null) {
+  const headers = { 'x-writer-token': token };
+  if (body !== null) headers['Content-Type'] = 'application/json';
+  const response = await fetch(API_URL, {
+    method,
+    headers,
+    body: body === null ? undefined : JSON.stringify(body),
+    cache: 'no-store'
+  });
+  let result = {};
+  try { result = await response.json(); } catch {}
+  if (!response.ok) {
+    const error = new Error(result.error || `خطای ارتباط با سرور (${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
+  return result;
+}
+
+async function saveItems(nextItems) {
+  if (!cloudReady || cloudBusy) {
+    alert('اتصال به فضای ابری هنوز آماده نیست. پس از نمایش پیام اتصال موفق دوباره تلاش کنید.');
+    return false;
+  }
+
+  const token = getWriterToken();
+  if (!token) return false;
+  cloudBusy = true;
+  $('saveBtn').disabled = true;
+
   try {
+    const oldById = new Map(items.map(item => [item.id, item]));
+    const newById = new Map(nextItems.map(item => [item.id, item]));
+
+    // ابتدا حذف‌های انجام‌شده را در سرور ثبت می‌کنیم.
+    for (const oldItem of items) {
+      if (!newById.has(oldItem.id)) {
+        await cloudRequest('POST', token, { action: 'delete', id: oldItem.id });
+      }
+    }
+
+    // فقط تراکنش‌های تازه یا تغییرکرده را به سرور می‌فرستیم.
+    for (const item of nextItems) {
+      const oldItem = oldById.get(item.id);
+      if (!oldItem || oldItem.type !== item.type || oldItem.date !== item.date ||
+          oldItem.desc !== item.desc || oldItem.amount !== item.amount ||
+          (oldItem.note || '') !== (item.note || '')) {
+        await cloudRequest('POST', token, {
+          action: 'upsert',
+          transaction: transactionToCloud(item)
+        });
+      }
+    }
+
     localStorage.setItem(KEY, JSON.stringify(nextItems));
     items = nextItems;
     render();
     return true;
-  } catch {
-    alert('ذخیره اطلاعات انجام نشد. احتمالاً حافظه مرورگر پر شده یا اجازه ذخیره‌سازی وجود ندارد. اطلاعات را پاک نکنید و از صفحه خارج نشوید.');
+  } catch (error) {
+    if (error && error.status === 401) {
+      try { localStorage.removeItem(WRITER_TOKEN_KEY); } catch {}
+      alert('رمز ثبت اطلاعات درست نیست. صفحه را تازه‌سازی کن و رمز صحیح را دوباره وارد کن.');
+    } else {
+      alert(`ذخیره در فضای ابری انجام نشد: ${error.message || 'خطای نامشخص'}\nاطلاعات این تغییر در صفحه ذخیره نشد.`);
+    }
     return false;
+  } finally {
+    cloudBusy = false;
+    $('saveBtn').disabled = !cloudReady;
+  }
+}
+
+async function initializeCloud() {
+  const footer = document.querySelector('footer');
+  footer.textContent = 'در حال اتصال امن به فضای ابری؛ لطفاً تا پایان اتصال اطلاعاتی ثبت نکنید...';
+  $('saveBtn').disabled = true;
+  $('saveOpening').disabled = true;
+
+  const token = getWriterToken();
+  if (!token) {
+    footer.textContent = 'اتصال برقرار نشد. برای اتصال، صفحه را تازه‌سازی کنید و رمز ثبت اطلاعات را وارد کنید.';
+    return;
+  }
+
+  try {
+    const remote = await cloudRequest('GET', token);
+    const remoteItems = (Array.isArray(remote.transactions) ? remote.transactions : [])
+      .map(transactionFromCloud).filter(Boolean);
+    const migrated = localStorage.getItem(CLOUD_SYNC_KEY) === 'done';
+
+    if (!migrated) {
+      // اولین اتصال: سوابق موجود گوشی و سوابق ابری را با هم نگه می‌داریم.
+      // در شناسه‌های تکراری، نسخه موجود در همین گوشی اولویت دارد.
+      const mergedById = new Map(remoteItems.map(item => [item.id, item]));
+      for (const item of items) mergedById.set(item.id, item);
+      const mergedItems = Array.from(mergedById.values())
+        .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id);
+
+      await cloudRequest('POST', token, {
+        action: 'sync-all',
+        transactions: mergedItems.map(transactionToCloud)
+      });
+
+      const localOpeningExists = localStorage.getItem(OPENING_KEY) !== null;
+      const chosenOpening = localOpeningExists
+        ? openingBalance
+        : Math.max(0, Math.round(Number(remote.opening_balance) || 0));
+
+      await cloudRequest('POST', token, {
+        action: 'save-opening',
+        amount: chosenOpening
+      });
+
+      items = mergedItems;
+      openingBalance = chosenOpening;
+      localStorage.setItem(KEY, JSON.stringify(items));
+      localStorage.setItem(OPENING_KEY, String(openingBalance));
+      localStorage.setItem(CLOUD_SYNC_KEY, 'done');
+    } else {
+      // از دفعات بعد، سرور مرجع اصلی اطلاعات است.
+      items = remoteItems;
+      const remoteOpening = Number(remote.opening_balance);
+      openingBalance = Number.isSafeInteger(remoteOpening) && remoteOpening >= 0 ? remoteOpening : 0;
+      localStorage.setItem(KEY, JSON.stringify(items));
+      localStorage.setItem(OPENING_KEY, String(openingBalance));
+    }
+
+    lastId = Math.max(lastId, ...items.map(item => item.id), Date.now());
+    $('openingBalance').value = String(openingBalance);
+    cloudReady = true;
+    $('saveBtn').disabled = false;
+    $('saveOpening').disabled = false;
+    footer.textContent = 'اتصال به فضای ابری برقرار است. اطلاعات در سرور ذخیره می‌شود و صاحب‌کار می‌تواند گزارش به‌روز را مشاهده کند.';
+    render();
+  } catch (error) {
+    if (error && error.status === 401) {
+      try { localStorage.removeItem(WRITER_TOKEN_KEY); } catch {}
+      footer.textContent = 'رمز ثبت اطلاعات صحیح نیست. صفحه را تازه‌سازی کنید و رمز درست را وارد کنید.';
+    } else {
+      footer.textContent = `اتصال به فضای ابری ناموفق بود: ${error.message || 'خطای نامشخص'}. اطلاعات محلی حذف نشده است؛ صفحه را تازه‌سازی کنید و دوباره تلاش کنید.`;
+    }
+    $('saveBtn').disabled = true;
+    $('saveOpening').disabled = true;
   }
 }
 
@@ -777,7 +956,7 @@ setType('expense');
 $('expenseTab').addEventListener('click', () => setType('expense'));
 $('incomeTab').addEventListener('click', () => setType('income'));
 
-$('transactionForm').addEventListener('submit', event => {
+$('transactionForm').addEventListener('submit', async event => {
   event.preventDefault();
   const dateText = $('date').value.trim();
   const date = parseJalaliInput(dateText);
@@ -809,11 +988,11 @@ $('transactionForm').addEventListener('submit', event => {
   const nextItems = editing !== null
     ? items.map(item => item.id === editing ? transaction : item)
     : [...items, transaction];
-  if (saveItems(nextItems)) resetForm();
+  if (await saveItems(nextItems)) resetForm();
 });
 
 $('cancelEdit').addEventListener('click', resetForm);
-$('list').addEventListener('click', event => {
+$('list').addEventListener('click', async event => {
   const button = event.target.closest('button[data-action]');
   if (!button) return;
   const id = Number(button.dataset.id);
@@ -833,11 +1012,11 @@ $('list').addEventListener('click', event => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } else if (action === 'delete' && confirm('این تراکنش حذف شود؟')) {
     const nextItems = items.filter(entry => entry.id !== id);
-    if (saveItems(nextItems) && editing === id) resetForm();
+    if (await saveItems(nextItems) && editing === id) resetForm();
   }
 });
 
-$('saveOpening').addEventListener('click', () => {
+$('saveOpening').addEventListener('click', async () => {
   const raw = $('openingBalance').value.trim();
   const amount = raw === '' ? 0 : parseAmount(raw);
   if (amount === null || amount < 0) {
@@ -845,13 +1024,23 @@ $('saveOpening').addEventListener('click', () => {
     $('openingBalance').focus();
     return;
   }
+  if (!cloudReady || cloudBusy) {
+    alert('اتصال به فضای ابری هنوز آماده نیست.');
+    return;
+  }
+  const token = getWriterToken();
+  if (!token) return;
+  $('saveOpening').disabled = true;
   try {
+    await cloudRequest('POST', token, { action: 'save-opening', amount });
     localStorage.setItem(OPENING_KEY, String(amount));
     openingBalance = amount;
     render();
-    alert('مانده اولیه ذخیره شد.');
-  } catch {
-    alert('ذخیره مانده اولیه انجام نشد. اجازه ذخیره‌سازی مرورگر را بررسی کنید.');
+    alert('مانده اولیه در فضای ابری ذخیره شد.');
+  } catch (error) {
+    alert(`ذخیره مانده اولیه انجام نشد: ${error.message || 'خطای نامشخص'}`);
+  } finally {
+    $('saveOpening').disabled = !cloudReady;
   }
 });
 
@@ -907,6 +1096,7 @@ render();
 if (storageWarning) {
   alert('هشدار: بخشی از اطلاعات ذخیره‌شده قابل خواندن نبود یا مرورگر اجازه دسترسی به حافظه را نداد. قبل از ادامه، اطلاعات را بررسی کنید.');
 }
+initializeCloud();
 
 </script>
 </body>
